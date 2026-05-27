@@ -74,6 +74,8 @@ export function renderWires(
  * horizontal collision when a process has many same-edge ports with long
  * names.
  */
+const PORT_LABEL_MAX_CHARS = 12;
+
 function drawPortLabel(
   parent: SVGElement,
   port: { x: number; y: number },
@@ -83,21 +85,31 @@ function drawPortLabel(
   dir: ResolvedWire["direction"],
 ): void {
   const t = document.createElementNS(SVG_NS, "text") as SVGTextElement;
-  t.textContent = name;
+  // Truncate long names so adjacent rotated labels don't pile into each other;
+  // the full name is still available via the port glyph's <title> tooltip.
+  const shown = name.length > PORT_LABEL_MAX_CHARS
+    ? name.slice(0, PORT_LABEL_MAX_CHARS - 1) + "…"
+    : name;
+  t.textContent = shown;
   t.classList.add("bgv2-port-label", `bgv2-port-label-${dir}`);
-  t.setAttribute("data-bgv2-from", "");  // populated by caller via dataset on the wire side; not used here
-  const gap = 5;
+  if (shown !== name) {
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = name;
+    t.appendChild(title);
+  }
+  const gap = 4;
   if (portEdge === "top") {
-    // Anchor at port, rotate -90° so text reads upward from the glyph.
+    // Label emerges from the port at -45° (up-and-right) so it points along
+    // the wire's natural exit direction without occluding the process box.
     t.setAttribute("x", String(port.x));
     t.setAttribute("y", String(port.y - gap));
     t.setAttribute("text-anchor", "start");
-    t.setAttribute("transform", `rotate(-90 ${port.x} ${port.y - gap})`);
+    t.setAttribute("transform", `rotate(-45 ${port.x} ${port.y - gap})`);
   } else if (portEdge === "bottom") {
     t.setAttribute("x", String(port.x));
     t.setAttribute("y", String(port.y + gap));
     t.setAttribute("text-anchor", "start");
-    t.setAttribute("transform", `rotate(90 ${port.x} ${port.y + gap})`);
+    t.setAttribute("transform", `rotate(45 ${port.x} ${port.y + gap})`);
   } else if (portEdge === "left") {
     t.setAttribute("x", String(port.x - gap));
     t.setAttribute("y", String(port.y + 3));
