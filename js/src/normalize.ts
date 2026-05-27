@@ -27,18 +27,36 @@ const ROOT_NON_CHILD_KEYS = new Set(["name", "stores"]);
 
 export function normalize(raw: RawSpec): SpecNode {
   const rootName = raw.name ?? "root";
-  // Root children = (top-level keys except `name` and `stores`) ∪ (entries
-  // of `raw.stores` if present). This unwraps the `stores: {...}` convention
-  // used by bigraph-viz–style fixtures AND picks up siblings declared at the
-  // top level (the shape process_bigraph composites emit, e.g.
-  // `{ "global_time": 0, "initialize": {...}, "metabolism": {...} }`).
+  // Two conventions coexist in the wild:
+  //
+  // 1. bigraph-viz fixture style: `{name: "cell", stores: {membrane: ..., ...}}`
+  //    Here `stores:` is a viz-only wrapper; its entries ARE the root's children.
+  //    Wires inside resolve relative to the *unwrapped* layout.
+  //
+  // 2. process-bigraph composite style: `{MM: {process}, FBA: {process},
+  //    stores: {substrates: ..., biomass: ...}, emitter: {step}}`
+  //    Here `stores:` is itself a named child (a shared substore). Wires like
+  //    `["stores", "substrates"]` traverse through it as a real path segment,
+  //    so it MUST be preserved as a sub-store or wire resolution breaks.
+  //
+  // The two are distinguishable: if `stores:` is the only non-`name` top-level
+  // key, it's the bigraph-viz wrapper convention (unwrap). Otherwise it's a
+  // named child sitting alongside processes/variables and we keep it.
+  const topLevelKeys = Object.keys(raw).filter(k => k !== "name");
+  const isStoresWrapper =
+    topLevelKeys.length === 1 &&
+    topLevelKeys[0] === "stores" &&
+    raw.stores !== undefined &&
+    typeof raw.stores === "object";
+
   const children: Record<string, unknown> = {};
-  for (const [k, v] of Object.entries(raw)) {
-    if (ROOT_NON_CHILD_KEYS.has(k)) continue;
-    children[k] = v;
-  }
-  if (raw.stores && typeof raw.stores === "object") {
+  if (isStoresWrapper && raw.stores) {
     for (const [k, v] of Object.entries(raw.stores)) {
+      children[k] = v;
+    }
+  } else {
+    for (const [k, v] of Object.entries(raw)) {
+      if (k === "name") continue;
       children[k] = v;
     }
   }

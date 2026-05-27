@@ -64,4 +64,52 @@ describe("normalize", () => {
     const childNames = root.children.map(c => c.name).sort();
     expect(childNames).toEqual(["a", "b"]);
   });
+
+  it("keeps `stores:` as a named substore when it has top-level siblings " +
+     "(process-bigraph composite convention)", () => {
+    // Typical composite shape: processes at top level, a `stores:` sibling
+    // holding shared variables that processes wire into.
+    const root = normalize({
+      MM: {
+        _type: "process",
+        address: "local:MichaelisMentenStep",
+        inputs:  { substrates: ["stores", "substrates"] },
+        outputs: { uptake_rates: ["stores", "uptake_rates"] },
+      },
+      FBA: {
+        _type: "process",
+        address: "local:FBAProcess",
+        inputs:  { uptake_rates: ["stores", "uptake_rates"] },
+        outputs: { biomass:      ["stores", "biomass"] },
+      },
+      stores: {
+        substrates:   { _type: "variable", value: 1.0 },
+        uptake_rates: { _type: "variable", value: 0.0 },
+        biomass:      { _type: "variable", value: 0.1 },
+      },
+    });
+    const childNames = root.children.map(c => c.name).sort();
+    // `stores` is a *named* child here, not a wrapper — alongside MM and FBA.
+    expect(childNames).toEqual(["FBA", "MM", "stores"]);
+
+    // And its children (substrates / biomass / uptake_rates) are nested
+    // under `stores`, so wire paths like ["stores", "substrates"] still
+    // resolve correctly via lookup.
+    const stores = root.children.find(c => c.name === "stores")!;
+    const storeChildren = stores.children.map(c => c.name).sort();
+    expect(storeChildren).toEqual(["biomass", "substrates", "uptake_rates"]);
+  });
+
+  it("unwraps `stores:` when it's the only non-`name` top-level key " +
+     "(bigraph-viz fixture convention)", () => {
+    const root = normalize({
+      name: "demo",
+      stores: {
+        a: { _type: "variable", value: 1 },
+        b: { _type: "variable", value: 2 },
+      },
+    });
+    const childNames = root.children.map(c => c.name).sort();
+    expect(childNames).toEqual(["a", "b"]);
+  });
 });
