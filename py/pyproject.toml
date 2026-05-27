@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bigraph-viz2"
-version = "0.1.1"
+version = "0.2.0"
 description = "Lightweight read-only bigraph renderer with no graphviz dependency"
 readme = "README.md"
 authors = [{ name = "The Vivarium Collective" }]
@@ -33,6 +33,7 @@ Issues        = "https://github.com/vivarium-collective/bigraph-viz2/issues"
 
 [project.optional-dependencies]
 test = ["pytest>=8.0", "playwright>=1.45"]
+expand = ["process-bigraph"]
 
 [tool.setuptools]
 packages = ["bigraph_viz2", "bigraph_viz2._bundle"]

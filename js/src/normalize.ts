@@ -27,15 +27,24 @@ const ROOT_NON_CHILD_KEYS = new Set(["name", "stores"]);
 
 export function normalize(raw: RawSpec): SpecNode {
   const rootName = raw.name ?? "root";
-  if (raw.stores !== undefined) {
-    return buildNode(rootName, raw.stores, "store", rootName);
-  }
-  // fallback shape: top-level keys are children. Drop the root-only keys.
-  const filtered: Record<string, unknown> = {};
+  // The two supported shapes both produce a single root store whose
+  // children are the union of:
+  //   (1) top-level keys other than `name` and `stores`, and
+  //   (2) the entries of `raw.stores` (if present).
+  // Merging these lets the typical process-bigraph composite shape —
+  // processes at the top level alongside a shared `stores:` sibling —
+  // render correctly without forcing callers to wrap their doc.
+  const combined: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(raw)) {
-    if (!ROOT_NON_CHILD_KEYS.has(k)) filtered[k] = v;
+    if (ROOT_NON_CHILD_KEYS.has(k)) continue;
+    combined[k] = v;
   }
-  return buildNode(rootName, filtered, "store", rootName);
+  if (raw.stores && typeof raw.stores === "object") {
+    for (const [k, v] of Object.entries(raw.stores)) {
+      combined[k] = v;
+    }
+  }
+  return buildNode(rootName, combined, "store", rootName);
 }
 
 function buildNode(

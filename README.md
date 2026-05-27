@@ -41,6 +41,45 @@ from bigraph_viz2 import BigraphViz
 BigraphViz(composite_state)   # auto-displays via _repr_html_
 ```
 
+### Composite expansion + schema validation
+
+A raw `.pbg` document references stores by wire path that may not exist
+until `process_bigraph.Composite` materializes them. To render the
+expanded structure (so all wire targets resolve and the spec is also
+type-checked), pass `expand=True`:
+
+```python
+from bigraph_viz2 import emit_html
+html = emit_html(spec, expand=True)
+```
+
+This mirrors what `bigraph-viz` did: it calls `core.realize(schema,
+state)` under the hood. Requires the `expand` extra:
+
+```bash
+pip install "bigraph-viz2[expand]"
+```
+
+For composites referencing custom process addresses (e.g.
+`local:MyProcess`), build a core with those registered and pass it:
+
+```python
+from process_bigraph import allocate_core
+import my_pkg                       # side-effect: registers process types
+core = allocate_core()
+html = emit_html(spec, expand=True, core=core)
+```
+
+There's also a stand-alone validator that returns a list of issues
+without rendering:
+
+```python
+from bigraph_viz2 import validate_state
+issues = validate_state(spec)       # [] if clean
+```
+
+### Multi-instance pages
+
 For pages with **multiple viz instances**, inline the bundle once and
 dedupe the rest:
 

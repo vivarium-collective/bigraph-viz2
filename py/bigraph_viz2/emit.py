@@ -24,9 +24,22 @@ def emit_html(
     dedupe: bool = False,
     id: str | None = None,
     max_row_width: int = 480,
+    expand: bool = False,
+    core: Any | None = None,
 ) -> str:
+    """Produce a self-contained HTML snippet that renders `state` in the browser.
+
+    Set ``expand=True`` to run the spec through ``bigraph_schema`` /
+    ``process_bigraph`` first — this materializes wire-referenced stores and
+    type-checks the spec, the same compile step ``bigraph-viz`` did. If the
+    composite references custom process addresses, build a ``core`` with those
+    registered and pass it; otherwise a default core is allocated.
+    """
     if theme != "light":
         raise ValueError("only theme='light' is supported in v1")
+    if expand:
+        from .expand import expand_state
+        state = expand_state(state, core=core)
     viz_id = id or _new_id()
     div_id = f"bgv2-{viz_id}"
     data_id = f"bgv2-{viz_id}-data"
