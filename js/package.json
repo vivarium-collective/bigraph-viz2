@@ -1,6 +1,6 @@
 {
   "name": "@bigraph-viz/bigraph-viz2",
-  "version": "0.3.14",
+  "version": "0.3.15",
   "description": "Lightweight read-only bigraph renderer",
   "type": "module",
   "main": "./dist/bigraph-viz2.esm.js",

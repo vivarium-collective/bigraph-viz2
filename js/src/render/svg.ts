@@ -16,19 +16,19 @@ export function renderSvg(lr: LayoutResult): SVGSVGElement {
   svg.appendChild(root);
 
   // Three layers, painted back to front:
-  //   1. nodeLayer — store/process/variable bodies
-  //   2. wireLayer — bezier paths on TOP of nodes so they actually show
-  //      (node fills would otherwise occlude midsections of long bezier
-  //      routes that loop outside the node bbox)
-  //   3. portLayer — port glyphs and labels on TOP of wires so they remain
+  //   1. wireLayer — bezier paths drawn BEHIND nodes so the node bodies sit
+  //      on top; with the detour heuristic + CHILD_GAP_Y room, wires are
+  //      visible in the empty channels between rows
+  //   2. nodeLayer — store/process/variable bodies
+  //   3. portLayer — port glyphs and labels on TOP of nodes so they stay
   //      hoverable and labels stay legible
-  const nodeLayer = document.createElementNS(SVG_NS, "g");
   const wireLayer = document.createElementNS(SVG_NS, "g");
+  const nodeLayer = document.createElementNS(SVG_NS, "g");
   const portLayer = document.createElementNS(SVG_NS, "g");
   wireLayer.classList.add("bgv2-wire-layer");
   portLayer.classList.add("bgv2-port-layer");
-  root.appendChild(nodeLayer);
   root.appendChild(wireLayer);
+  root.appendChild(nodeLayer);
   root.appendChild(portLayer);
 
   for (const ln of lr.byId.values()) renderNode(nodeLayer, ln);
