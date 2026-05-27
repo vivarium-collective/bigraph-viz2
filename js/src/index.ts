@@ -6,8 +6,10 @@ import { attachPanZoom } from "./interact/panzoom";
 import { attachHover } from "./interact/hover";
 import { attachClick } from "./interact/click";
 import { attachCollapse } from "./interact/collapse";
+import { attachDragNode } from "./interact/dragnode";
 import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
+import type { NodeId, RowsOverride } from "./types";
 
 export const version = "0.1.0";
 
@@ -31,7 +33,6 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   const showInspector = opts.inspector !== false;
   const maxRowWidth = opts.maxRowWidth ?? 480;
 
-  // structure: <canvas><svg/></canvas> [<inspector/>]
   const canvas = document.createElement("div");
   canvas.className = "bgv2-canvas";
   el.appendChild(canvas);
@@ -40,21 +41,30 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   if (inspectorEl) { inspectorEl.className = "bgv2-inspector"; el.appendChild(inspectorEl); }
 
   const root = normalize(state as Parameters<typeof normalize>[0]);
-  let collapsed = decodeHash(window.location.hash, vizId);
+  let collapsed: Set<NodeId> = decodeHash(window.location.hash, vizId);
+  let rowsOverride: RowsOverride = new Map();
   const detachers: Array<() => void> = [];
 
   function rerender() {
     detachers.forEach(d => d()); detachers.length = 0;
     canvas.innerHTML = "";
-    const lr = layout(root, collapsed, maxRowWidth);
+    const lr = layout(root, collapsed, maxRowWidth, rowsOverride);
     const svg = renderSvg(lr);
     canvas.appendChild(svg);
 
-    detachers.push(attachPanZoom(svg, svg.querySelector(".bgv2-root")!));
+    const drag = attachDragNode(svg, lr, rowsOverride, (next) => {
+      rowsOverride = next;
+      rerender();
+    });
+    detachers.push(drag.detach);
+
+    detachers.push(attachPanZoom(svg, svg.querySelector(".bgv2-root")!, {
+      isLocked: drag.isActive,
+    }));
     detachers.push(attachHover(svg, lr));
     detachers.push(attachClick(svg, lr, (sel) => {
       if (inspectorEl) renderInspector(inspectorEl, lr, sel);
-    }));
+    }, { isLocked: drag.isActive }));
     detachers.push(attachCollapse(svg, root, vizId, collapsed, (next) => {
       collapsed = next; rerender();
     }));

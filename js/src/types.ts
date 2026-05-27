@@ -8,6 +8,11 @@ export type WirePath = string[];    // ["..", "membrane", "v"] — relative or a
 
 export type NodeKind = "store" | "variable" | "process";
 
+// "in"  → variable feeds the process (arrow points to the process)
+// "out" → process writes to variable (arrow points to the variable)
+// "both"→ undirected (no arrowhead; used when the spec didn't say)
+export type PortDirection = "in" | "out" | "both";
+
 export interface SpecNode {
   id: NodeId;                       // computed during normalization (parent + name)
   name: string;                     // leaf name
@@ -17,6 +22,7 @@ export interface SpecNode {
   address?: string;                 // e.g. "fba.CobraStep"
   config?: unknown;
   ports?: Record<string, WirePath>; // port_name -> wire path (relative/absolute)
+  portDirections?: Record<string, PortDirection>;  // direction lookup, defaults "both"
   // variable-only:
   type?: string;                    // declared type, if present
   value?: unknown;
@@ -43,4 +49,18 @@ export interface ResolvedWire {
   // either a target node id or a collapsed chip id:
   targetId: NodeId;
   retargetedToChip: boolean;
+  direction: PortDirection;
 }
+
+// Override for sibling layout order: maps a parent node's id to the explicit
+// child id ordering. Children not listed retain their natural position relative
+// to listed ones. Used by drag-to-rearrange.
+export type SiblingOrder = Map<NodeId, NodeId[]>;
+
+// Explicit per-parent row layout. Each parent's children are partitioned into
+// rows (each row is a left-to-right list of child ids). When a parent has an
+// override, the auto row-wrap based on max_row_width is disabled for that
+// parent — the user's drop placements are honored exactly. Children present in
+// the spec but missing from the override are appended to a synthesized last
+// row to avoid losing nodes after spec changes.
+export type RowsOverride = Map<NodeId, NodeId[][]>;

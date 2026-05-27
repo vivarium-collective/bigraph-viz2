@@ -40,3 +40,21 @@
 .bgv2-portmap    { width: 100%; font-size: 11px; border-collapse: collapse; }
 .bgv2-portmap td { padding: 3px 0; }
 .bgv2-portmap td.mono { font-family: var(--bgv2-font-mono); color: #0f172a; }
+
+.bgv2-drag-ghost { filter: drop-shadow(0 4px 12px rgba(37,99,235,0.35)); }
+.bgv2-drag-slot  { fill: #2563eb; opacity: 0.55; pointer-events: none; }
+
+/* Force a stacking context / isolated compositor layer so Safari doesn't
+   leave repeated frame artifacts when the inner <g> pans. */
+.bgv2-svg { isolation: isolate; will-change: transform; }
+
+/* Subtle hover affordance on nodes that can be Alt-dragged. */
+.bgv2-svg.bgv2-alt-mode .bgv2-node { cursor: grab; }
+
+/* Directional port glyphs (orientation + color encode in/out; port names appear
+   in the inspector or via the native <title> tooltip on hover). */
+.bgv2-port-in       { fill: #ea580c; }   /* input  ports = orange triangle */
+.bgv2-port-out      { fill: #0d9488; }   /* output ports = teal triangle */
+.bgv2-port-both     { fill: var(--bgv2-process-stroke); }
+.bgv2-wire-in       { stroke: #ea580c; }
+.bgv2-wire-out      { stroke: #0d9488; }
