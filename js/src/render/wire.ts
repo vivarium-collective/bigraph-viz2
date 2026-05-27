@@ -98,9 +98,12 @@ function drawPortLabel(
     t.appendChild(title);
   }
   const gap = 4;
+  // All four edges fan their labels out at 45° away from the port.
+  // The text anchors at the port, then is rotated so it reads diagonally —
+  // top/right labels extend up-and-right, bottom labels extend down-and-right,
+  // left labels extend up-and-left. This matches the natural exit angle of
+  // the wire and avoids the labels overlapping the process body.
   if (portEdge === "top") {
-    // Label emerges from the port at -45° (up-and-right) so it points along
-    // the wire's natural exit direction without occluding the process box.
     t.setAttribute("x", String(port.x));
     t.setAttribute("y", String(port.y - gap));
     t.setAttribute("text-anchor", "start");
@@ -112,12 +115,14 @@ function drawPortLabel(
     t.setAttribute("transform", `rotate(45 ${port.x} ${port.y + gap})`);
   } else if (portEdge === "left") {
     t.setAttribute("x", String(port.x - gap));
-    t.setAttribute("y", String(port.y + 3));
+    t.setAttribute("y", String(port.y));
     t.setAttribute("text-anchor", "end");
-  } else {
+    t.setAttribute("transform", `rotate(45 ${port.x - gap} ${port.y})`);
+  } else {  // right
     t.setAttribute("x", String(port.x + gap));
-    t.setAttribute("y", String(port.y + 3));
+    t.setAttribute("y", String(port.y));
     t.setAttribute("text-anchor", "start");
+    t.setAttribute("transform", `rotate(-45 ${port.x + gap} ${port.y})`);
   }
   parent.appendChild(t);
 }
