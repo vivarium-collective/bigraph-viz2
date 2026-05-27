@@ -1,9 +1,72 @@
+import "./style.css";
+import { normalize } from "./normalize";
+import { layout } from "./layout";
+import { renderSvg } from "./render/svg";
+import { attachPanZoom } from "./interact/panzoom";
+import { attachHover } from "./interact/hover";
+import { attachClick } from "./interact/click";
+import { attachCollapse } from "./interact/collapse";
+import { renderInspector } from "./inspector/render";
+import { decodeHash } from "./hash/sync";
+
 export const version = "0.1.0";
 
-export function mount(_el: HTMLElement, _state: unknown, _opts?: unknown): void {
-  throw new Error("not implemented");
+export interface MountOpts {
+  inspector?: boolean;
+  maxRowWidth?: number;
+  id?: string;
 }
 
-export function unmount(_el: HTMLElement): void {
-  throw new Error("not implemented");
+interface Instance {
+  detachers: Array<() => void>;
+}
+
+const INSTANCES = new WeakMap<HTMLElement, Instance>();
+let nextId = 0;
+
+export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): void {
+  unmount(el);
+  el.classList.add("bgv2");
+  const vizId = opts.id ?? `auto-${++nextId}`;
+  const showInspector = opts.inspector !== false;
+  const maxRowWidth = opts.maxRowWidth ?? 480;
+
+  // structure: <canvas><svg/></canvas> [<inspector/>]
+  const canvas = document.createElement("div");
+  canvas.className = "bgv2-canvas";
+  el.appendChild(canvas);
+
+  const inspectorEl = showInspector ? document.createElement("div") : null;
+  if (inspectorEl) { inspectorEl.className = "bgv2-inspector"; el.appendChild(inspectorEl); }
+
+  const root = normalize(state as Parameters<typeof normalize>[0]);
+  let collapsed = decodeHash(window.location.hash, vizId);
+  const detachers: Array<() => void> = [];
+
+  function rerender() {
+    detachers.forEach(d => d()); detachers.length = 0;
+    canvas.innerHTML = "";
+    const lr = layout(root, collapsed, maxRowWidth);
+    const svg = renderSvg(lr);
+    canvas.appendChild(svg);
+
+    detachers.push(attachPanZoom(svg, svg.querySelector(".bgv2-root")!));
+    detachers.push(attachHover(svg, lr));
+    detachers.push(attachClick(svg, lr, (sel) => {
+      if (inspectorEl) renderInspector(inspectorEl, lr, sel);
+    }));
+    detachers.push(attachCollapse(svg, root, vizId, collapsed, (next) => {
+      collapsed = next; rerender();
+    }));
+    if (inspectorEl) renderInspector(inspectorEl, lr, null);
+  }
+  rerender();
+  INSTANCES.set(el, { detachers });
+}
+
+export function unmount(el: HTMLElement): void {
+  const inst = INSTANCES.get(el);
+  if (inst) { inst.detachers.forEach(d => d()); INSTANCES.delete(el); }
+  el.innerHTML = "";
+  el.classList.remove("bgv2");
 }
