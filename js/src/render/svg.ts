@@ -15,14 +15,23 @@ export function renderSvg(lr: LayoutResult): SVGSVGElement {
   root.classList.add("bgv2-root");
   svg.appendChild(root);
 
-  // nodes first, wires on top
-  const nodeLayer = document.createElementNS(SVG_NS, "g");
+  // Three layers, painted back to front:
+  //   1. wireLayer — bezier paths drawn BEHIND nodes so they don't obscure
+  //      labels
+  //   2. nodeLayer — store/process/variable bodies
+  //   3. portLayer — port glyphs (and any port-side overlays) ABOVE nodes so
+  //      their hover tooltips remain interactive
   const wireLayer = document.createElementNS(SVG_NS, "g");
-  root.appendChild(nodeLayer);
+  const nodeLayer = document.createElementNS(SVG_NS, "g");
+  const portLayer = document.createElementNS(SVG_NS, "g");
+  wireLayer.classList.add("bgv2-wire-layer");
+  portLayer.classList.add("bgv2-port-layer");
   root.appendChild(wireLayer);
+  root.appendChild(nodeLayer);
+  root.appendChild(portLayer);
 
   for (const ln of lr.byId.values()) renderNode(nodeLayer, ln);
-  renderWires(wireLayer, lr.wires, lr.byId);
+  renderWires(wireLayer, portLayer, lr.wires, lr.byId);
   return svg;
 }
 

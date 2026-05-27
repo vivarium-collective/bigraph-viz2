@@ -9,7 +9,8 @@ const VAR_CIRCLE_R = 16;
 const VAR_CIRCLE_Y_OFFSET = -6;
 
 export function renderWires(
-  parent: SVGElement,
+  wireParent: SVGElement,
+  glyphParent: SVGElement,
   wires: ResolvedWire[],
   byId: Map<NodeId, LayoutNode>,
 ): void {
@@ -54,8 +55,8 @@ export function renderWires(
       }
       group.forEach((a, i) => {
         const port = portPosition(procBox, e, i, group.length);
-        drawBezierWire(parent, port, e, a.endpoint, a.w);
-        drawPortLabel(parent, port, e, procBox, a.w.portName, a.w.direction);
+        drawBezierWire(wireParent, glyphParent, port, e, a.endpoint, a.w);
+        drawPortLabel(glyphParent, port, e, procBox, a.w.portName, a.w.direction);
       });
     }
   }
@@ -99,7 +100,8 @@ function drawPortLabel(
 }
 
 function drawBezierWire(
-  parent: SVGElement,
+  wireParent: SVGElement,
+  glyphParent: SVGElement,
   port: { x: number; y: number },
   portEdge: Edge,
   end: { x: number; y: number; approachEdge: Edge },
@@ -128,17 +130,22 @@ function drawBezierWire(
     `M ${port.x} ${port.y} C ${c1x} ${c1y} ${c2x} ${c2y} ${end.x} ${end.y}`,
   );
   path.setAttribute("stroke-dasharray", "4,3");
+  path.setAttribute("data-bgv2-from", w.processId);
+  path.setAttribute("data-bgv2-to", w.targetId);
   path.classList.add("bgv2-wire", `bgv2-wire-${w.direction}`);
   if (w.retargetedToChip) path.classList.add("bgv2-wire-retargeted");
-  parent.appendChild(path);
+  wireParent.appendChild(path);
 
-  // Port glyph carries direction (orientation + color). Native SVG <title>
-  // gives the port name on hover without cluttering the canvas.
+  // Port glyph carries direction (orientation + color). Tag it with the same
+  // from/to so hover emphasis can find it via the same selector. Native SVG
+  // <title> gives the port name on hover without cluttering the canvas.
   const glyph = makePortGlyph(port, portEdge, w.direction);
+  glyph.setAttribute("data-bgv2-from", w.processId);
+  glyph.setAttribute("data-bgv2-to", w.targetId);
   const title = document.createElementNS(SVG_NS, "title");
   title.textContent = w.portName;
   glyph.appendChild(title);
-  parent.appendChild(glyph);
+  glyphParent.appendChild(glyph);
 }
 
 function makePortGlyph(
