@@ -11,7 +11,7 @@ import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride } from "./types";
 
-export const version = "0.1.1";
+export const version = "0.2.1";
 
 export interface MountOpts {
   inspector?: boolean;

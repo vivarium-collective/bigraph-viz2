@@ -8,6 +8,23 @@ import { effectiveRows } from "./order";
 const CHIP_W = 140;
 const CHIP_H = 56;
 
+// Width budget for leaf-cell labels so long variable/process names don't
+// collide with their neighbors. Labels longer than the cap get ellipsized
+// (see render code) with the full name on hover.
+const VAR_LABEL_MAX = 180;
+const PROC_LABEL_MAX = 300;
+// Approximate glyph advance for the system-ui / monospace fonts we use at
+// the relevant sizes (10 px and 11 px). Slightly generous so we don't clip.
+const CHAR_W = 5.8;
+const VAR_LABEL_PAD = 8;
+const PROC_LABEL_PAD = 18;
+const STORE_HEADER_LABEL_PAD = 28;
+
+function estimateTextWidth(s: string, perChar = CHAR_W): number {
+  if (!s) return 0;
+  return s.length * perChar;
+}
+
 export type Sizes = Map<NodeId, { w: number; h: number }>;
 
 export function measure(
@@ -29,17 +46,22 @@ function visit(
   rowsOverride?: RowsOverride,
 ): { w: number; h: number } {
   if (node.kind === "variable") {
-    const sz = { w: VAR_W, h: VAR_H };
+    const labelW = Math.min(estimateTextWidth(node.name) + VAR_LABEL_PAD, VAR_LABEL_MAX);
+    const sz = { w: Math.max(VAR_W, labelW), h: VAR_H };
     sizes.set(node.id, sz);
     return sz;
   }
   if (node.kind === "process") {
-    const sz = { w: PROC_W, h: PROC_H };
+    const nameW = estimateTextWidth(node.name, 6.6);
+    const addrW = estimateTextWidth(node.address ?? "");
+    const widestLabel = Math.min(Math.max(nameW, addrW) + PROC_LABEL_PAD, PROC_LABEL_MAX);
+    const sz = { w: Math.max(PROC_W, widestLabel), h: PROC_H };
     sizes.set(node.id, sz);
     return sz;
   }
   if (collapsed.has(node.id)) {
-    const sz = { w: CHIP_W, h: CHIP_H };
+    const chipNameW = estimateTextWidth(node.name) + 24;
+    const sz = { w: Math.max(CHIP_W, chipNameW), h: CHIP_H };
     sizes.set(node.id, sz);
     return sz;
   }
@@ -80,8 +102,11 @@ function visit(
     }
   }
 
+  // Don't let the store header label crash into the right border for stores
+  // whose name is wider than their content.
+  const headerW = estimateTextWidth(node.name, 6.6) + STORE_HEADER_LABEL_PAD;
   const sz = {
-    w: totalW + 2 * STORE_PAD,
+    w: Math.max(totalW + 2 * STORE_PAD, headerW + 2 * STORE_PAD),
     h: totalH + STORE_HEADER + 2 * STORE_PAD,
   };
   sizes.set(node.id, sz);

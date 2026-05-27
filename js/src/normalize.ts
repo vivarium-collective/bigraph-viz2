@@ -27,21 +27,20 @@ const ROOT_NON_CHILD_KEYS = new Set(["name", "stores"]);
 
 export function normalize(raw: RawSpec): SpecNode {
   const rootName = raw.name ?? "root";
-  // The root is always a store. Its children are every top-level key
-  // except `name` — which means `stores`, if present, becomes a SUB-STORE
-  // (preserving its nesting so wire paths like ["stores", "substrates"]
-  // resolve to the same path the engine uses), and siblings of `stores`
-  // (top-level processes / variables in the typical process-bigraph
-  // composite shape) render too.
-  //
-  // Previously the code special-cased `raw.stores` by replacing the
-  // root's children with `raw.stores`'s entries, which silently dropped
-  // any top-level processes the spec also declared (the common shape
-  // emitted by process-bigraph composites).
+  // Root children = (top-level keys except `name` and `stores`) ∪ (entries
+  // of `raw.stores` if present). This unwraps the `stores: {...}` convention
+  // used by bigraph-viz–style fixtures AND picks up siblings declared at the
+  // top level (the shape process_bigraph composites emit, e.g.
+  // `{ "global_time": 0, "initialize": {...}, "metabolism": {...} }`).
   const children: Record<string, unknown> = {};
   for (const [k, v] of Object.entries(raw)) {
-    if (k === "name") continue;
+    if (ROOT_NON_CHILD_KEYS.has(k)) continue;
     children[k] = v;
+  }
+  if (raw.stores && typeof raw.stores === "object") {
+    for (const [k, v] of Object.entries(raw.stores)) {
+      children[k] = v;
+    }
   }
   return buildNode(rootName, children, "store", rootName);
 }

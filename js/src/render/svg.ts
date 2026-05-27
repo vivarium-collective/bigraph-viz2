@@ -44,7 +44,7 @@ function renderNode(parent: SVGElement, ln: LayoutNode): void {
     c.classList.add("bgv2-var");
     g.appendChild(c);
     text(g, cx, cy + 4, node.name.slice(0, 2), "bgv2-var-icon");
-    text(g, cx, cy + 28, node.name, "bgv2-var-label");
+    fittedText(g, cx, cy + 28, node.name, "bgv2-var-label", bbox.w - 4);
     return;
   }
   if (node.kind === "process") {
@@ -55,9 +55,9 @@ function renderNode(parent: SVGElement, ln: LayoutNode): void {
     r.setAttribute("height", String(bbox.h));
     r.classList.add("bgv2-proc");
     g.appendChild(r);
-    text(g, bbox.x + bbox.w / 2, bbox.y + 22, node.name, "bgv2-proc-name");
+    fittedText(g, bbox.x + bbox.w / 2, bbox.y + 22, node.name, "bgv2-proc-name", bbox.w - 16);
     if (node.address) {
-      text(g, bbox.x + bbox.w / 2, bbox.y + 40, node.address, "bgv2-proc-addr");
+      fittedText(g, bbox.x + bbox.w / 2, bbox.y + 40, node.address, "bgv2-proc-addr", bbox.w - 16);
     }
     return;
   }
@@ -72,7 +72,7 @@ function renderNode(parent: SVGElement, ln: LayoutNode): void {
     r.setAttribute("stroke-dasharray", "6,3");
     r.classList.add("bgv2-chip");
     g.appendChild(r);
-    text(g, bbox.x + bbox.w / 2, bbox.y + 24, node.name, "bgv2-chip-name");
+    fittedText(g, bbox.x + bbox.w / 2, bbox.y + 24, node.name, "bgv2-chip-name", bbox.w - 16);
     const hidden = countDescendants(node);
     text(g, bbox.x + bbox.w / 2, bbox.y + 42, `▸ ${hidden} hidden`, "bgv2-chip-badge");
     return;
@@ -85,7 +85,7 @@ function renderNode(parent: SVGElement, ln: LayoutNode): void {
   r.setAttribute("rx", "12");
   r.classList.add("bgv2-store");
   g.appendChild(r);
-  text(g, bbox.x + 16, bbox.y + 22, node.name, "bgv2-store-label", "start");
+  fittedText(g, bbox.x + 16, bbox.y + 22, node.name, "bgv2-store-label", bbox.w - 32, "start");
 }
 
 function text(
@@ -99,6 +99,26 @@ function text(
   t.classList.add(cls);
   t.textContent = content;
   parent.appendChild(t);
+  return t;
+}
+
+/** Like text(), but truncate with an ellipsis if the rendered string would
+ * exceed `maxWidth` SVG units, and stash the full string in a native <title>
+ * tooltip so hover still surfaces it. */
+function fittedText(
+  parent: SVGElement, x: number, y: number, content: string, cls: string, maxWidth: number,
+  anchor: "start" | "middle" | "end" = "middle",
+): SVGTextElement {
+  const charW = cls.includes("name") ? 6.6 : 5.8;
+  const maxChars = Math.max(2, Math.floor(maxWidth / charW));
+  const fits = content.length <= maxChars;
+  const shown = fits ? content : content.slice(0, maxChars - 1) + "…";
+  const t = text(parent, x, y, shown, cls, anchor);
+  if (!fits) {
+    const title = document.createElementNS(SVG_NS, "title");
+    title.textContent = content;
+    t.appendChild(title);
+  }
   return t;
 }
 
