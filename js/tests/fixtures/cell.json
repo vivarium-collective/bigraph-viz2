@@ -1,0 +1,34 @@
+{
+  "name": "cell",
+  "stores": {
+    "membrane": {
+      "v": { "_type": "variable", "value": -70 },
+      "g": { "_type": "variable", "value": 0.1 },
+      "channels": { "_type": "variable", "value": [] }
+    },
+    "cytoplasm": {
+      "M": { "_type": "variable", "value": 1.0 },
+      "E": { "_type": "variable", "value": 0.5 },
+      "A": { "_type": "variable", "value": 2.0 },
+      "metabolism": {
+        "_type": "process",
+        "address": "fba.CobraStep",
+        "config": { "model": "iJO1366", "objective": "BIOMASS" },
+        "ports": {
+          "substrates": ["M"],
+          "enzymes":    ["E"],
+          "atp":        ["A"]
+        }
+      }
+    },
+    "diffusion": {
+      "_type": "process",
+      "address": "ode.IonFlux",
+      "config": {},
+      "ports": {
+        "voltage":  ["membrane", "v"],
+        "channels": ["membrane", "channels"]
+      }
+    }
+  }
+}
