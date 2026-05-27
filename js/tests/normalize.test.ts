@@ -45,4 +45,23 @@ describe("normalize", () => {
     expect(metab.kind).toBe("process");
     expect(metab.id).toBe("cell/cytoplasm/metabolism");
   });
+
+  it("preserves an explicit null variable value", () => {
+    const root = normalize({
+      name: "s",
+      stores: { x: { _type: "variable", value: null } },
+    });
+    const x = root.children[0];
+    expect(x.value).toBeNull();
+  });
+
+  it("does not leak 'name' as a child when 'stores' wrapper is absent", () => {
+    const root = normalize({
+      name: "s",
+      a: { _type: "variable", value: 1 },
+      b: { _type: "variable", value: 2 },
+    });
+    const childNames = root.children.map(c => c.name).sort();
+    expect(childNames).toEqual(["a", "b"]);
+  });
 });

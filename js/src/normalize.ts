@@ -19,10 +19,21 @@ const PROCESS_KEYS = new Set([
   "_type", "address", "config", "ports", "type", "value",
 ]);
 
+// Keys to exclude when walking a store-shaped root that doesn't use the
+// `stores: {...}` wrapper. Without this, `name` would leak as a synthetic child.
+const ROOT_NON_CHILD_KEYS = new Set(["name", "stores"]);
+
 export function normalize(raw: RawSpec): SpecNode {
   const rootName = raw.name ?? "root";
-  const rootChildren = raw.stores ?? raw;
-  return buildNode(rootName, rootChildren, "store", rootName);
+  if (raw.stores !== undefined) {
+    return buildNode(rootName, raw.stores, "store", rootName);
+  }
+  // fallback shape: top-level keys are children. Drop the root-only keys.
+  const filtered: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!ROOT_NON_CHILD_KEYS.has(k)) filtered[k] = v;
+  }
+  return buildNode(rootName, filtered, "store", rootName);
 }
 
 function buildNode(
@@ -39,9 +50,11 @@ function buildNode(
   const kind: NodeKind = declaredKind ?? inferredKind;
 
   if (kind === "variable") {
+    // Use `"value" in obj` to preserve explicit null values (?? would lose null).
+    const value = "value" in obj ? obj.value : obj;
     return {
       id: path, name, kind: "variable", children: [],
-      type: obj.type, value: obj.value ?? obj,
+      type: obj.type, value,
     };
   }
   if (kind === "process") {
