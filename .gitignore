@@ -1,0 +1,17 @@
+# JS
+js/node_modules/
+js/dist/
+js/coverage/
+js/test-results/
+js/playwright-report/
+
+# Python
+py/.venv/
+py/dist/
+py/*.egg-info/
+py/__pycache__/
+**/__pycache__/
+.pytest_cache/
+
+# OS
+.DS_Store
