@@ -155,10 +155,11 @@ function drawBezierWire(
     "d",
     `M ${port.x} ${port.y} C ${c1x} ${c1y} ${c2x} ${c2y} ${end.x} ${end.y}`,
   );
-  // Stroke widths in SCREEN pixels regardless of viewBox scale.
+  // Stroke widths in SCREEN pixels regardless of viewBox scale. Chunky 8/4
+  // dash pattern reads clearly as a dashed line at small canvas scales
+  // without disappearing into noise.
   path.setAttribute("vector-effect", "non-scaling-stroke");
-  // Solid wires read much better than dashes in dense graphs; the inspector
-  // and port glyph still distinguish wires from the place graph visually.
+  path.setAttribute("stroke-dasharray", "8,4");
   path.setAttribute("data-bgv2-from", w.processId);
   path.setAttribute("data-bgv2-to", w.targetId);
   path.classList.add("bgv2-wire", `bgv2-wire-${w.direction}`);
