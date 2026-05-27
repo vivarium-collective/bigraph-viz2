@@ -32,8 +32,10 @@ export function resolveWirePath(
     } else if (segment === ".") {
       // no-op
     } else {
-      const candidateId = `${cursor}/${segment}`;
-      // walk down: candidate must exist
+      // cursor is non-null here (guarded above); narrowing is lost across the
+      // loop boundary, so re-assert with a local.
+      const here: NodeId = cursor;
+      const candidateId: NodeId = `${here}/${segment}`;
       const node = findNode(root, candidateId);
       if (!node) return null;
       cursor = candidateId;

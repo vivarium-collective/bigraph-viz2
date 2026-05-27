@@ -40,7 +40,7 @@ describe("wire routing", () => {
       name: "s",
       stores: {
         p: {
-          _type: "process",
+          _type: "process" as const,
           address: "x",
           config: {},
           ports: { bad: ["does", "not", "exist"] },
