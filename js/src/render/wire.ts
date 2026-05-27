@@ -101,32 +101,26 @@ function drawPortLabel(
   const title = document.createElementNS(SVG_NS, "title");
   title.textContent = name;
   t.appendChild(title);
-  const gap = 4;
-  // All four edges fan their labels out at 45° away from the port.
-  // The text anchors at the port, then is rotated so it reads diagonally —
-  // top/right labels extend up-and-right, bottom labels extend down-and-right,
-  // left labels extend up-and-left. This matches the natural exit angle of
-  // the wire and avoids the labels overlapping the process body.
+  // Horizontal labels positioned just outside the port glyph. Only one is
+  // visible at a time (CSS `.bgv2-port:hover + .bgv2-port-label`) — so they
+  // never stack, even when a process has many ports on one edge.
+  const gap = 6;
   if (portEdge === "top") {
     t.setAttribute("x", String(port.x));
     t.setAttribute("y", String(port.y - gap));
-    t.setAttribute("text-anchor", "start");
-    t.setAttribute("transform", `rotate(-45 ${port.x} ${port.y - gap})`);
+    t.setAttribute("text-anchor", "middle");
   } else if (portEdge === "bottom") {
     t.setAttribute("x", String(port.x));
-    t.setAttribute("y", String(port.y + gap));
-    t.setAttribute("text-anchor", "start");
-    t.setAttribute("transform", `rotate(45 ${port.x} ${port.y + gap})`);
+    t.setAttribute("y", String(port.y + gap + 9));  // +font-size to baseline
+    t.setAttribute("text-anchor", "middle");
   } else if (portEdge === "left") {
     t.setAttribute("x", String(port.x - gap));
-    t.setAttribute("y", String(port.y));
+    t.setAttribute("y", String(port.y + 3));
     t.setAttribute("text-anchor", "end");
-    t.setAttribute("transform", `rotate(45 ${port.x - gap} ${port.y})`);
   } else {  // right
     t.setAttribute("x", String(port.x + gap));
-    t.setAttribute("y", String(port.y));
+    t.setAttribute("y", String(port.y + 3));
     t.setAttribute("text-anchor", "start");
-    t.setAttribute("transform", `rotate(-45 ${port.x + gap} ${port.y})`);
   }
   parent.appendChild(t);
 }

@@ -62,16 +62,16 @@
    connected subset. Each wire is tagged with data-bgv2-from / data-bgv2-to
    attributes so interact/hover.ts can apply .bgv2-wire-emph to its neighbours. */
 .bgv2-wire-layer    { pointer-events: none; }
-.bgv2-wire          { stroke-opacity: 0.75; stroke-width: 1.5; transition: stroke-opacity 120ms, stroke-width 120ms; }
-.bgv2-wire.bgv2-wire-emph { stroke-opacity: 1; stroke-width: 2.2; }
-.bgv2-port          { fill-opacity: 0.8; transition: fill-opacity 120ms; }
+.bgv2-wire          { stroke-opacity: 0.9; stroke-width: 1.8; transition: stroke-opacity 120ms, stroke-width 120ms; }
+.bgv2-wire.bgv2-wire-emph { stroke-opacity: 1; stroke-width: 2.6; }
+.bgv2-port          { fill-opacity: 0.9; transition: fill-opacity 120ms; cursor: help; }
 .bgv2-port.bgv2-port-emph { fill-opacity: 1; }
 
-/* Port name labels — hidden by default; hovering a node (or clicking it)
-   reveals only that node's labels via .bgv2-port-label-emph. Full name is
-   always available via the label's native <title> tooltip on direct hover. */
-.bgv2-port-label    { font-size: 9px; font-family: var(--bgv2-font-mono); fill: #94a3b8; opacity: 0; transition: opacity 100ms; pointer-events: none; }
-.bgv2-port-label.bgv2-port-label-emph { opacity: 0.95; }
+/* Port name labels — hidden by default. Only the label adjacent to a hovered
+   port glyph shows (CSS sibling combinator). At most ONE label visible at a
+   time, so they never stack. */
+.bgv2-port-label    { font-size: 10px; font-family: var(--bgv2-font-mono); fill: #475569; opacity: 0; transition: opacity 80ms; pointer-events: none; paint-order: stroke; stroke: #ffffff; stroke-width: 3px; stroke-linejoin: round; }
+.bgv2-port:hover + .bgv2-port-label { opacity: 1; }
 .bgv2-port-label-in  { fill: #c2410c; }
 .bgv2-port-label-out { fill: #0f766e; }
 

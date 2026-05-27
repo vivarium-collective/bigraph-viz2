@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "bigraph-viz2"
-version = "0.3.5"
+version = "0.3.6"
 description = "Lightweight read-only bigraph renderer with no graphviz dependency"
 readme = "README.md"
 authors = [{ name = "The Vivarium Collective" }]
