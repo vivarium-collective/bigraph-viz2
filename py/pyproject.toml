@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "bigraph-viz2"
+version = "0.1.0"
+description = "Lightweight read-only bigraph renderer with no graphviz dependency"
+authors = [{ name = "The Vivarium Collective" }]
+license = "Apache-2.0"
+requires-python = ">=3.10"
+dependencies = []
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "playwright>=1.45"]
+
+[tool.setuptools]
+packages = ["bigraph_viz2", "bigraph_viz2._bundle"]
+
+[tool.setuptools.package-data]
+"bigraph_viz2._bundle" = ["*.js", "*.css"]
