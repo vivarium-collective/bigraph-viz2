@@ -155,11 +155,10 @@ function drawBezierWire(
     "d",
     `M ${port.x} ${port.y} C ${c1x} ${c1y} ${c2x} ${c2y} ${end.x} ${end.y}`,
   );
-  // Stroke + dash lengths in SCREEN pixels regardless of viewBox scale, so
-  // wires stay visible when the canvas is heavily letterboxed (e.g. a 2400 ×
-  // 350 parca composite scaled into a 900 px tall container).
+  // Stroke widths in SCREEN pixels regardless of viewBox scale.
   path.setAttribute("vector-effect", "non-scaling-stroke");
-  path.setAttribute("stroke-dasharray", "4,3");
+  // Solid wires read much better than dashes in dense graphs; the inspector
+  // and port glyph still distinguish wires from the place graph visually.
   path.setAttribute("data-bgv2-from", w.processId);
   path.setAttribute("data-bgv2-to", w.targetId);
   path.classList.add("bgv2-wire", `bgv2-wire-${w.direction}`);
