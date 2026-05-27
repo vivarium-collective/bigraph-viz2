@@ -48,8 +48,19 @@ function buildNode(
     return { id: path, name, kind: "variable", children: [], value: raw };
   }
   const obj = raw as RawChild;
-  const declaredKind = obj._type;
-  const kind: NodeKind = declaredKind ?? inferredKind;
+  const declaredKind = obj._type as string | undefined;
+  // Recognize "store", "variable", "process" verbatim. Any *other* explicit
+  // _type (e.g. process-bigraph's "step", "edge") is treated as a process so
+  // its inputs/outputs/ports + address render correctly. Missing _type falls
+  // back to structural inference.
+  let kind: NodeKind;
+  if (declaredKind === "store" || declaredKind === "variable" || declaredKind === "process") {
+    kind = declaredKind;
+  } else if (declaredKind) {
+    kind = "process";
+  } else {
+    kind = inferredKind;
+  }
 
   if (kind === "variable") {
     // Use `"value" in obj` to preserve explicit null values (?? would lose null).

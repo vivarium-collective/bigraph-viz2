@@ -7,5 +7,5 @@ Public API:
 from .emit import emit_html
 from .jupyter import BigraphViz
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __all__ = ["emit_html", "BigraphViz", "__version__"]
