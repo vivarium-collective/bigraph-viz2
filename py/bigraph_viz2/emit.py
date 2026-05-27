@@ -26,6 +26,7 @@ def emit_html(
     max_row_width: int = 480,
     expand: bool = False,
     core: Any | None = None,
+    materialize: bool = True,
 ) -> str:
     """Produce a self-contained HTML snippet that renders `state` in the browser.
 
@@ -59,6 +60,7 @@ def emit_html(
         "inspector": inspector,
         "maxRowWidth": max_row_width,
         "id": viz_id,
+        "materialize": materialize,
     })
 
     style = f"height:{height};width:{width}"

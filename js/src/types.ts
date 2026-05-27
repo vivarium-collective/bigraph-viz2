@@ -18,6 +18,7 @@ export interface SpecNode {
   name: string;                     // leaf name
   kind: NodeKind;
   children: SpecNode[];             // empty for variables; substores + nested processes for stores
+  synthetic?: boolean;              // true if added by materializeWireTargets (not in the source spec)
   // process-only:
   address?: string;                 // e.g. "fba.CobraStep"
   config?: unknown;

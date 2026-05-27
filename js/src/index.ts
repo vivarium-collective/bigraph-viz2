@@ -1,5 +1,6 @@
 import "./style.css";
 import { normalize } from "./normalize";
+import { materializeWireTargets } from "./materialize";
 import { layout } from "./layout";
 import { renderSvg } from "./render/svg";
 import { attachPanZoom } from "./interact/panzoom";
@@ -11,12 +12,16 @@ import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride } from "./types";
 
-export const version = "0.2.2";
+export const version = "0.3.0";
 
 export interface MountOpts {
   inspector?: boolean;
   maxRowWidth?: number;
   id?: string;
+  /** If true (default), synthesize any wire-target stores that the spec
+   * references but doesn't declare, so wires render. Synthetic nodes appear
+   * with a dashed outline. Set false to view the literal spec only. */
+  materialize?: boolean;
 }
 
 interface Instance {
@@ -41,6 +46,7 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   if (inspectorEl) { inspectorEl.className = "bgv2-inspector"; el.appendChild(inspectorEl); }
 
   const root = normalize(state as Parameters<typeof normalize>[0]);
+  if (opts.materialize !== false) materializeWireTargets(root);
   let collapsed: Set<NodeId> = decodeHash(window.location.hash, vizId);
   let rowsOverride: RowsOverride = new Map();
   const detachers: Array<() => void> = [];

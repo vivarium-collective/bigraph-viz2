@@ -32,6 +32,7 @@ function renderNode(parent: SVGElement, ln: LayoutNode): void {
   const g = document.createElementNS(SVG_NS, "g");
   g.setAttribute("data-bgv2-id", node.id);
   g.classList.add("bgv2-node", `bgv2-node-${node.kind}`);
+  if (node.synthetic) g.classList.add("bgv2-synthetic");
   parent.appendChild(g);
 
   if (node.kind === "variable") {

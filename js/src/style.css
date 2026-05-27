@@ -64,3 +64,16 @@
 .bgv2-port-label    { font-size: 8.5px; font-family: var(--bgv2-font-mono); fill: #94a3b8; opacity: 0.85; pointer-events: none; }
 .bgv2-port-label-in  { fill: #c2410c; }
 .bgv2-port-label-out { fill: #0f766e; }
+
+/* Synthetic nodes (materialized from wire references, not declared in the
+   source spec). Distinguishable by a dashed outline + slightly muted fill. */
+.bgv2-synthetic .bgv2-store,
+.bgv2-synthetic .bgv2-var {
+  stroke-dasharray: 5,3;
+  opacity: 0.75;
+}
+.bgv2-synthetic .bgv2-var-label,
+.bgv2-synthetic .bgv2-store-label {
+  font-style: italic;
+  opacity: 0.85;
+}
