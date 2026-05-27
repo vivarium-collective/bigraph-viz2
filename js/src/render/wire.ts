@@ -55,9 +55,47 @@ export function renderWires(
       group.forEach((a, i) => {
         const port = portPosition(procBox, e, i, group.length);
         drawBezierWire(parent, port, e, a.endpoint, a.w);
+        drawPortLabel(parent, port, e, procBox, a.w.portName, a.w.direction);
       });
     }
   }
+}
+
+/**
+ * Render the port name as a small label hugging the port glyph, INSIDE the
+ * process rectangle. Anchored to the same edge the port lives on so it stays
+ * visually attached to the dot.
+ */
+function drawPortLabel(
+  parent: SVGElement,
+  port: { x: number; y: number },
+  portEdge: Edge,
+  procBox: { x: number; y: number; w: number; h: number },
+  name: string,
+  dir: ResolvedWire["direction"],
+): void {
+  const t = document.createElementNS(SVG_NS, "text") as SVGTextElement;
+  t.textContent = name;
+  t.classList.add("bgv2-port-label", `bgv2-port-label-${dir}`);
+  const inset = 6;
+  if (portEdge === "top") {
+    t.setAttribute("x", String(port.x));
+    t.setAttribute("y", String(procBox.y + inset + 6));
+    t.setAttribute("text-anchor", "middle");
+  } else if (portEdge === "bottom") {
+    t.setAttribute("x", String(port.x));
+    t.setAttribute("y", String(procBox.y + procBox.h - inset));
+    t.setAttribute("text-anchor", "middle");
+  } else if (portEdge === "left") {
+    t.setAttribute("x", String(procBox.x + inset));
+    t.setAttribute("y", String(port.y + 3));
+    t.setAttribute("text-anchor", "start");
+  } else {
+    t.setAttribute("x", String(procBox.x + procBox.w - inset));
+    t.setAttribute("y", String(port.y + 3));
+    t.setAttribute("text-anchor", "end");
+  }
+  parent.appendChild(t);
 }
 
 function drawBezierWire(

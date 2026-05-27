@@ -51,10 +51,16 @@
 /* Subtle hover affordance on nodes that can be Alt-dragged. */
 .bgv2-svg.bgv2-alt-mode .bgv2-node { cursor: grab; }
 
-/* Directional port glyphs (orientation + color encode in/out; port names appear
-   in the inspector or via the native <title> tooltip on hover). */
+/* Directional port glyphs (orientation + color encode in/out). */
 .bgv2-port-in       { fill: #ea580c; }   /* input  ports = orange triangle */
 .bgv2-port-out      { fill: #0d9488; }   /* output ports = teal triangle */
 .bgv2-port-both     { fill: var(--bgv2-process-stroke); }
 .bgv2-wire-in       { stroke: #ea580c; }
 .bgv2-wire-out      { stroke: #0d9488; }
+
+/* Port name labels — small + light by default so they don't dominate; their
+   parent process highlights on hover (via .bgv2-node-process:hover further
+   down) where labels become more legible. */
+.bgv2-port-label    { font-size: 8.5px; font-family: var(--bgv2-font-mono); fill: #94a3b8; opacity: 0.85; pointer-events: none; }
+.bgv2-port-label-in  { fill: #c2410c; }
+.bgv2-port-label-out { fill: #0f766e; }
