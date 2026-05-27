@@ -21,10 +21,6 @@ const PROCESS_KEYS = new Set([
   "_type", "address", "config", "ports", "inputs", "outputs", "type", "value",
 ]);
 
-// Keys to exclude when walking a store-shaped root that doesn't use the
-// `stores: {...}` wrapper. Without this, `name` would leak as a synthetic child.
-const ROOT_NON_CHILD_KEYS = new Set(["name", "stores"]);
-
 export function normalize(raw: RawSpec): SpecNode {
   const rootName = raw.name ?? "root";
   // Two conventions coexist in the wild:
