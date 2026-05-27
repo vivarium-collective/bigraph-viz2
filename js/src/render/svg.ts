@@ -15,23 +15,28 @@ export function renderSvg(lr: LayoutResult): SVGSVGElement {
   root.classList.add("bgv2-root");
   svg.appendChild(root);
 
-  // Three layers, painted back to front:
-  //   1. wireLayer — bezier paths drawn BEHIND nodes so the node bodies sit
-  //      on top; with the detour heuristic + CHILD_GAP_Y room, wires are
-  //      visible in the empty channels between rows
-  //   2. nodeLayer — store/process/variable bodies
-  //   3. portLayer — port glyphs and labels on TOP of nodes so they stay
-  //      hoverable and labels stay legible
+  // Four layers, painted back to front:
+  //   1. containerLayer — stores + variables (visible through the wires)
+  //   2. wireLayer      — bezier paths threading between containers but
+  //                       passing UNDER processes
+  //   3. processLayer   — sharp rectangles on top of wires so the
+  //                       computation nodes pop forward
+  //   4. portLayer      — port glyphs + hover labels on top of everything
+  const containerLayer = document.createElementNS(SVG_NS, "g");
   const wireLayer = document.createElementNS(SVG_NS, "g");
-  const nodeLayer = document.createElementNS(SVG_NS, "g");
+  const processLayer = document.createElementNS(SVG_NS, "g");
   const portLayer = document.createElementNS(SVG_NS, "g");
   wireLayer.classList.add("bgv2-wire-layer");
   portLayer.classList.add("bgv2-port-layer");
+  root.appendChild(containerLayer);
   root.appendChild(wireLayer);
-  root.appendChild(nodeLayer);
+  root.appendChild(processLayer);
   root.appendChild(portLayer);
 
-  for (const ln of lr.byId.values()) renderNode(nodeLayer, ln);
+  for (const ln of lr.byId.values()) {
+    const layer = ln.node.kind === "process" ? processLayer : containerLayer;
+    renderNode(layer, ln);
+  }
   renderWires(wireLayer, portLayer, lr.wires, lr.byId);
   return svg;
 }
