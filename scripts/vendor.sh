@@ -17,3 +17,9 @@ else
   exit 1
 fi
 echo "✔ vendored bundle into py/bigraph_viz2/_bundle/"
+
+# Keep py/README.md in sync with the repo-root README so PyPI picks it up via
+# pyproject.toml's `readme = "README.md"` field (which is resolved relative to
+# the directory containing pyproject.toml).
+cp "$HERE/README.md" "$HERE/py/README.md"
+echo "✔ synced README.md to py/README.md"
