@@ -12,7 +12,7 @@ import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride } from "./types";
 
-export const version = "0.3.6";
+export const version = "0.3.7";
 
 export interface MountOpts {
   inspector?: boolean;

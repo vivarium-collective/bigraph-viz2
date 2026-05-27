@@ -155,6 +155,10 @@ function drawBezierWire(
     "d",
     `M ${port.x} ${port.y} C ${c1x} ${c1y} ${c2x} ${c2y} ${end.x} ${end.y}`,
   );
+  // Stroke + dash lengths in SCREEN pixels regardless of viewBox scale, so
+  // wires stay visible when the canvas is heavily letterboxed (e.g. a 2400 ×
+  // 350 parca composite scaled into a 900 px tall container).
+  path.setAttribute("vector-effect", "non-scaling-stroke");
   path.setAttribute("stroke-dasharray", "4,3");
   path.setAttribute("data-bgv2-from", w.processId);
   path.setAttribute("data-bgv2-to", w.targetId);
