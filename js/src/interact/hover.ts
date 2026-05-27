@@ -13,6 +13,7 @@ export function attachHover(svg: SVGSVGElement, lr: LayoutResult): () => void {
     if (emphasizedId !== null) {
       svg.querySelectorAll(".bgv2-wire-emph").forEach(el => el.classList.remove("bgv2-wire-emph"));
       svg.querySelectorAll(".bgv2-port-emph").forEach(el => el.classList.remove("bgv2-port-emph"));
+      svg.querySelectorAll(".bgv2-port-label-emph").forEach(el => el.classList.remove("bgv2-port-label-emph"));
     }
     emphasizedId = id;
     if (id === null) return;
@@ -23,6 +24,9 @@ export function attachHover(svg: SVGSVGElement, lr: LayoutResult): () => void {
     svg.querySelectorAll(
       `.bgv2-port[data-bgv2-from="${idEsc}"], .bgv2-port[data-bgv2-to="${idEsc}"]`,
     ).forEach(p => p.classList.add("bgv2-port-emph"));
+    svg.querySelectorAll(
+      `.bgv2-port-label[data-bgv2-from="${idEsc}"], .bgv2-port-label[data-bgv2-to="${idEsc}"]`,
+    ).forEach(l => l.classList.add("bgv2-port-label-emph"));
   }
 
   function onMove(e: MouseEvent) {

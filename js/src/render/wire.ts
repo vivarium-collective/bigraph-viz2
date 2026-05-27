@@ -56,7 +56,7 @@ export function renderWires(
       group.forEach((a, i) => {
         const port = portPosition(procBox, e, i, group.length);
         drawBezierWire(wireParent, glyphParent, port, e, a.endpoint, a.w);
-        drawPortLabel(glyphParent, port, e, procBox, a.w.portName, a.w.direction);
+        drawPortLabel(glyphParent, port, e, procBox, a.w.portName, a.w.direction, a.w.processId, a.w.targetId);
       });
     }
   }
@@ -83,6 +83,8 @@ function drawPortLabel(
   _procBox: { x: number; y: number; w: number; h: number },
   name: string,
   dir: ResolvedWire["direction"],
+  processId: string,
+  targetId: string,
 ): void {
   const t = document.createElementNS(SVG_NS, "text") as SVGTextElement;
   // Truncate long names so adjacent rotated labels don't pile into each other;
@@ -92,11 +94,13 @@ function drawPortLabel(
     : name;
   t.textContent = shown;
   t.classList.add("bgv2-port-label", `bgv2-port-label-${dir}`);
-  if (shown !== name) {
-    const title = document.createElementNS(SVG_NS, "title");
-    title.textContent = name;
-    t.appendChild(title);
-  }
+  t.setAttribute("data-bgv2-from", processId);
+  t.setAttribute("data-bgv2-to", targetId);
+  // Always add the full name as a <title>, even if not truncated, so hovering
+  // the label itself surfaces the canonical port name.
+  const title = document.createElementNS(SVG_NS, "title");
+  title.textContent = name;
+  t.appendChild(title);
   const gap = 4;
   // All four edges fan their labels out at 45° away from the port.
   // The text anchors at the port, then is rotated so it reads diagonally —

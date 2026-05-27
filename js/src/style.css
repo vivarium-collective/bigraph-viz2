@@ -67,10 +67,11 @@
 .bgv2-port          { fill-opacity: 0.8; transition: fill-opacity 120ms; }
 .bgv2-port.bgv2-port-emph { fill-opacity: 1; }
 
-/* Port name labels — small + light by default so they don't dominate; their
-   parent process highlights on hover (via .bgv2-node-process:hover further
-   down) where labels become more legible. */
-.bgv2-port-label    { font-size: 8.5px; font-family: var(--bgv2-font-mono); fill: #94a3b8; opacity: 0.85; pointer-events: none; }
+/* Port name labels — hidden by default; hovering a node (or clicking it)
+   reveals only that node's labels via .bgv2-port-label-emph. Full name is
+   always available via the label's native <title> tooltip on direct hover. */
+.bgv2-port-label    { font-size: 9px; font-family: var(--bgv2-font-mono); fill: #94a3b8; opacity: 0; transition: opacity 100ms; pointer-events: none; }
+.bgv2-port-label.bgv2-port-label-emph { opacity: 0.95; }
 .bgv2-port-label-in  { fill: #c2410c; }
 .bgv2-port-label-out { fill: #0f766e; }
 
