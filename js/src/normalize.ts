@@ -1,4 +1,4 @@
-import type { SpecNode, NodeKind, WirePath } from "./types";
+import type { SpecNode, NodeKind, WirePath, PortDirection } from "./types";
 
 type RawSpec = {
   name?: string;
@@ -11,12 +11,14 @@ type RawChild = {
   address?: string;
   config?: unknown;
   ports?: Record<string, WirePath>;
+  inputs?: Record<string, WirePath>;
+  outputs?: Record<string, WirePath>;
   type?: string;
   value?: unknown;
 } & Record<string, unknown>;
 
 const PROCESS_KEYS = new Set([
-  "_type", "address", "config", "ports", "type", "value",
+  "_type", "address", "config", "ports", "inputs", "outputs", "type", "value",
 ]);
 
 // Keys to exclude when walking a store-shaped root that doesn't use the
@@ -58,9 +60,22 @@ function buildNode(
     };
   }
   if (kind === "process") {
+    // Merge ports (direction-less) + inputs (direction "in") + outputs ("out")
+    // into a single `ports` map + `portDirections` lookup.
+    const ports: Record<string, WirePath> = {};
+    const portDirections: Record<string, PortDirection> = {};
+    for (const [n, w] of Object.entries(obj.ports ?? {})) {
+      ports[n] = w; portDirections[n] = "both";
+    }
+    for (const [n, w] of Object.entries(obj.inputs ?? {})) {
+      ports[n] = w; portDirections[n] = "in";
+    }
+    for (const [n, w] of Object.entries(obj.outputs ?? {})) {
+      ports[n] = w; portDirections[n] = "out";
+    }
     return {
       id: path, name, kind: "process", children: [],
-      address: obj.address, config: obj.config, ports: obj.ports ?? {},
+      address: obj.address, config: obj.config, ports, portDirections,
     };
   }
   // store: walk children = entries that aren't process/variable metadata keys

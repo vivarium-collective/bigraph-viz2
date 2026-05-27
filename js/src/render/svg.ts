@@ -1,5 +1,5 @@
 import type { LayoutResult, LayoutNode, SpecNode } from "../types";
-import { renderWire } from "./wire";
+import { renderWires } from "./wire";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -22,13 +22,10 @@ export function renderSvg(lr: LayoutResult): SVGSVGElement {
   root.appendChild(wireLayer);
 
   for (const ln of lr.byId.values()) renderNode(nodeLayer, ln);
-  for (const w of lr.wires) {
-    const proc = lr.byId.get(w.processId)!;
-    const target = lr.byId.get(w.targetId)!;
-    renderWire(wireLayer, proc, target, w);
-  }
+  renderWires(wireLayer, lr.wires, lr.byId);
   return svg;
 }
+
 
 function renderNode(parent: SVGElement, ln: LayoutNode): void {
   const { node, bbox, collapsed } = ln;
@@ -88,14 +85,17 @@ function renderNode(parent: SVGElement, ln: LayoutNode): void {
   r.setAttribute("rx", "12");
   r.classList.add("bgv2-store");
   g.appendChild(r);
-  text(g, bbox.x + 16, bbox.y + 22, node.name, "bgv2-store-label");
+  text(g, bbox.x + 16, bbox.y + 22, node.name, "bgv2-store-label", "start");
 }
 
-function text(parent: SVGElement, x: number, y: number, content: string, cls: string): SVGTextElement {
+function text(
+  parent: SVGElement, x: number, y: number, content: string, cls: string,
+  anchor: "start" | "middle" | "end" = "middle",
+): SVGTextElement {
   const t = document.createElementNS(SVG_NS, "text") as SVGTextElement;
   t.setAttribute("x", String(x));
   t.setAttribute("y", String(y));
-  t.setAttribute("text-anchor", "middle");
+  t.setAttribute("text-anchor", anchor);
   t.classList.add(cls);
   t.textContent = content;
   parent.appendChild(t);
