@@ -47,12 +47,13 @@ describe("renderSvg", () => {
     stores.forEach(r => expect(Number(r.getAttribute("rx"))).toBeGreaterThan(0));
   });
 
-  it("contains one <line class='bgv2-wire'> per resolved wire", () => {
+  it("contains one <path class='bgv2-wire'> per resolved wire", () => {
     const root = normalize(cellSpec);
     const lr = layout(root, new Set(), 480);
     const svg = renderSvg(lr);
-    const wires = svg.querySelectorAll("line.bgv2-wire");
+    const wires = svg.querySelectorAll("path.bgv2-wire");
     expect(wires.length).toBe(lr.wires.length);
+    wires.forEach(w => expect(w.getAttribute("d")).toMatch(/^M .* C /));
   });
 
   it("renders collapsed stores as a dashed chip with badge", () => {

@@ -38,6 +38,7 @@ export function routeWires(
           portName: r.portName,
           targetId: r.targetId,
           retargetedToChip: r.retargeted,
+          direction: proc.portDirections?.[r.portName] ?? "both",
         });
       }
     }
