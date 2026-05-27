@@ -8,11 +8,12 @@ import { attachHover } from "./interact/hover";
 import { attachClick } from "./interact/click";
 import { attachCollapse } from "./interact/collapse";
 import { attachDragNode } from "./interact/dragnode";
+import { attachDelete } from "./interact/delete";
 import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride } from "./types";
 
-export const version = "0.3.13";
+export const version = "0.3.14";
 
 export interface MountOpts {
   inspector?: boolean;
@@ -49,12 +50,14 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   if (opts.materialize !== false) materializeWireTargets(root);
   let collapsed: Set<NodeId> = decodeHash(window.location.hash, vizId);
   let rowsOverride: RowsOverride = new Map();
+  let deleted: Set<NodeId> = new Set();
+  let selectedId: NodeId | null = null;
   const detachers: Array<() => void> = [];
 
   function rerender() {
     detachers.forEach(d => d()); detachers.length = 0;
     canvas.innerHTML = "";
-    const lr = layout(root, collapsed, maxRowWidth, rowsOverride);
+    const lr = layout(root, collapsed, maxRowWidth, rowsOverride, deleted);
     const svg = renderSvg(lr);
     canvas.appendChild(svg);
 
@@ -69,12 +72,20 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     }));
     detachers.push(attachHover(svg, lr));
     detachers.push(attachClick(svg, lr, (sel) => {
+      selectedId = sel;
       if (inspectorEl) renderInspector(inspectorEl, lr, sel);
     }, { isLocked: drag.isActive }));
     detachers.push(attachCollapse(svg, root, vizId, collapsed, (next) => {
       collapsed = next; rerender();
     }));
-    if (inspectorEl) renderInspector(inspectorEl, lr, null);
+    detachers.push(attachDelete(svg, () => selectedId, deleted, (next) => {
+      deleted = next;
+      // If we just deleted the selected node, clear the selection so the next
+      // delete doesn't act on a stale id.
+      if (selectedId && next.has(selectedId)) selectedId = null;
+      rerender();
+    }));
+    if (inspectorEl) renderInspector(inspectorEl, lr, selectedId);
   }
   rerender();
   INSTANCES.set(el, { detachers });

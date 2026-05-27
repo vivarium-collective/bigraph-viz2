@@ -32,9 +32,10 @@ export function measure(
   collapsed: Set<NodeId>,
   maxRowWidth: number,
   rowsOverride?: RowsOverride,
+  deleted?: Set<NodeId>,
 ): Sizes {
   const sizes: Sizes = new Map();
-  visit(root, collapsed, maxRowWidth, sizes, rowsOverride);
+  visit(root, collapsed, maxRowWidth, sizes, rowsOverride, deleted);
   return sizes;
 }
 
@@ -44,6 +45,7 @@ function visit(
   maxRowWidth: number,
   sizes: Sizes,
   rowsOverride?: RowsOverride,
+  deleted?: Set<NodeId>,
 ): { w: number; h: number } {
   if (node.kind === "variable") {
     const labelW = Math.min(estimateTextWidth(node.name) + VAR_LABEL_PAD, VAR_LABEL_MAX);
@@ -66,10 +68,16 @@ function visit(
     return sz;
   }
 
-  // Recurse first so all child sizes are known.
-  for (const c of node.children) visit(c, collapsed, maxRowWidth, sizes, rowsOverride);
+  // Recurse first so all child sizes are known. Skip deleted nodes entirely.
+  const visibleChildren = deleted
+    ? node.children.filter(c => !deleted.has(c.id))
+    : node.children;
+  for (const c of visibleChildren) visit(c, collapsed, maxRowWidth, sizes, rowsOverride, deleted);
 
-  const { rows, explicit } = effectiveRows(node, rowsOverride);
+  const { rows: rowsAll, explicit } = effectiveRows(node, rowsOverride);
+  const rows = deleted
+    ? rowsAll.map(row => row.filter(c => !deleted.has(c.id))).filter(r => r.length > 0)
+    : rowsAll;
   let totalW = 0, totalH = 0;
 
   if (explicit) {
@@ -83,7 +91,7 @@ function visit(
   } else {
     // Auto-wrap based on max_row_width.
     let curRowW = 0, curRowH = 0;
-    for (const child of node.children) {
+    for (const child of visibleChildren) {
       const sz = sizes.get(child.id)!;
       const wantW = curRowW === 0 ? sz.w : curRowW + CHILD_GAP_X + sz.w;
       if (curRowW > 0 && wantW > maxRowWidth) {
