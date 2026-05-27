@@ -10,8 +10,12 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "isolatedModules": true,
-    "declaration": true,
+    // declaration emit is disabled: we ship a single bundled file via vite,
+    // not raw .d.ts files. (Set declaration=true and split into tsconfig.src.json
+    // if/when downstream consumers want types.)
+    "declaration": false,
     "outDir": "dist",
+    // rootDir = "." so the typecheck command covers both src/ and tests/
     "rootDir": "."
   },
   "include": ["src/**/*", "tests/**/*"]
