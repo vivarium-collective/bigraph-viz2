@@ -1,4 +1,4 @@
-import type { LayoutNode, NodeId, ResolvedWire } from "../types";
+import type { LayoutNode, NodeId, ResolvedWire, BBox } from "../types";
 import { chooseEdge, portPosition } from "../wires/ports";
 import type { Edge } from "../wires/ports";
 
@@ -8,12 +8,25 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const VAR_CIRCLE_R = 16;
 const VAR_CIRCLE_Y_OFFSET = -6;
 
+// How far past a node's bbox we want the wire to stay clear.
+const OBSTACLE_CLEARANCE = 8;
+// Cap on lateral nudge so a single wire doesn't fly across the whole canvas.
+const MAX_DETOUR = 90;
+
 export function renderWires(
   wireParent: SVGElement,
   glyphParent: SVGElement,
   wires: ResolvedWire[],
   byId: Map<NodeId, LayoutNode>,
 ): void {
+  // Precompute the list of all node bboxes for obstacle-avoidance routing.
+  // Stores (which CONTAIN the wire's endpoints) and chip bboxes are skipped
+  // — only leaves (variables, processes, collapsed chips) act as obstacles.
+  const obstacles: Array<{ id: NodeId; box: BBox }> = [];
+  for (const ln of byId.values()) {
+    if (ln.node.kind === "store" && !ln.collapsed) continue;
+    obstacles.push({ id: ln.node.id, box: ln.bbox });
+  }
   const byProc = new Map<NodeId, ResolvedWire[]>();
   for (const w of wires) {
     let list = byProc.get(w.processId);
@@ -55,7 +68,8 @@ export function renderWires(
       }
       group.forEach((a, i) => {
         const port = portPosition(procBox, e, i, group.length);
-        drawBezierWire(wireParent, glyphParent, port, e, a.endpoint, a.w);
+        const detour = detourOffset(port, a.endpoint, obstacles, a.w.processId, a.w.targetId);
+        drawBezierWire(wireParent, glyphParent, port, e, a.endpoint, a.w, detour);
         drawPortLabel(glyphParent, port, e, procBox, a.w.portName, a.w.direction, a.w.processId, a.w.targetId);
       });
     }
@@ -132,6 +146,7 @@ function drawBezierWire(
   portEdge: Edge,
   end: { x: number; y: number; approachEdge: Edge },
   w: ResolvedWire,
+  detour: { dx: number; dy: number },
 ): void {
   const dx = end.x - port.x;
   const dy = end.y - port.y;
@@ -141,14 +156,13 @@ function drawBezierWire(
   const pn = edgeNormal(portEdge);
   const an = edgeNormal(end.approachEdge);
 
-  // For arrowhead positioning we want the path to ALWAYS go from port to end
-  // and the arrow either at the end (out: pointing to variable) or at the
-  // start (in: pointing to process). marker-start with orient="auto-start-reverse"
-  // does the right thing for the "in" case.
-  const c1x = port.x + pn.dx * offset;
-  const c1y = port.y + pn.dy * offset;
-  const c2x = end.x + an.dx * offset;
-  const c2y = end.y + an.dy * offset;
+  // Base control points along each end's edge-normal, plus a lateral nudge
+  // computed by detourOffset() so the wire bulges around any node bboxes
+  // its straight path would cross.
+  const c1x = port.x + pn.dx * offset + detour.dx;
+  const c1y = port.y + pn.dy * offset + detour.dy;
+  const c2x = end.x + an.dx * offset + detour.dx;
+  const c2y = end.y + an.dy * offset + detour.dy;
 
   const path = document.createElementNS(SVG_NS, "path");
   path.setAttribute(
@@ -235,6 +249,48 @@ function visualEndpoint(
   const approachEdge = chooseEdge(bbox, port.x, port.y);
   const e = portPosition(bbox, approachEdge, 0, 1);
   return { x: e.x, y: e.y, approachEdge };
+}
+
+/**
+ * Detect which non-endpoint node bboxes the straight line `port → end` would
+ * cross, and compute a perpendicular nudge that pushes the bezier control
+ * points sideways to detour around them. Returns the (dx, dy) to add to both
+ * control points; magnitude is capped at MAX_DETOUR.
+ */
+function detourOffset(
+  port: { x: number; y: number },
+  end: { x: number; y: number },
+  obstacles: Array<{ id: NodeId; box: BBox }>,
+  processId: NodeId,
+  targetId: NodeId,
+): { dx: number; dy: number } {
+  const dx = end.x - port.x;
+  const dy = end.y - port.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1) return { dx: 0, dy: 0 };
+  const ux = dx / len, uy = dy / len;
+  // 90° CCW perpendicular
+  const px = -uy, py = ux;
+  let push = 0;
+  for (const o of obstacles) {
+    if (o.id === processId || o.id === targetId) continue;
+    const cx = o.box.x + o.box.w / 2;
+    const cy = o.box.y + o.box.h / 2;
+    // Project obstacle center onto the line; skip if past the endpoints.
+    const t = (cx - port.x) * ux + (cy - port.y) * uy;
+    if (t <= 10 || t >= len - 10) continue;
+    // Signed perpendicular distance from line to obstacle center
+    const perpDist = (cx - port.x) * px + (cy - port.y) * py;
+    const halfRadius = Math.max(o.box.w, o.box.h) / 2;
+    const overlap = halfRadius + OBSTACLE_CLEARANCE - Math.abs(perpDist);
+    if (overlap > 0) {
+      // Push the wire opposite to the obstacle's perpendicular position.
+      push += -Math.sign(perpDist || 1) * overlap;
+    }
+  }
+  if (push === 0) return { dx: 0, dy: 0 };
+  const clamped = Math.max(-MAX_DETOUR, Math.min(MAX_DETOUR, push));
+  return { dx: px * clamped, dy: py * clamped };
 }
 
 function edgeNormal(e: Edge): { dx: number; dy: number } {
