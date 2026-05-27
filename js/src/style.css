@@ -62,9 +62,9 @@
    connected subset. Each wire is tagged with data-bgv2-from / data-bgv2-to
    attributes so interact/hover.ts can apply .bgv2-wire-emph to its neighbours. */
 .bgv2-wire-layer    { pointer-events: none; }
-.bgv2-wire          { stroke-opacity: 0.32; stroke-width: 1.2; transition: stroke-opacity 120ms, stroke-width 120ms; }
+.bgv2-wire          { stroke-opacity: 0.55; stroke-width: 1.3; transition: stroke-opacity 120ms, stroke-width 120ms; }
 .bgv2-wire.bgv2-wire-emph { stroke-opacity: 1; stroke-width: 1.8; }
-.bgv2-port          { fill-opacity: 0.45; transition: fill-opacity 120ms; }
+.bgv2-port          { fill-opacity: 0.65; transition: fill-opacity 120ms; }
 .bgv2-port.bgv2-port-emph { fill-opacity: 1; }
 
 /* Port name labels — small + light by default so they don't dominate; their

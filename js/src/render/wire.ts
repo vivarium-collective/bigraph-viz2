@@ -67,34 +67,45 @@ export function renderWires(
  * process rectangle. Anchored to the same edge the port lives on so it stays
  * visually attached to the dot.
  */
+/**
+ * Render the port name OUTSIDE the process box, anchored at the port glyph
+ * and oriented along the wire direction. Top/bottom-edge labels are rotated
+ * so they read along the wire (vertical), which avoids the inside-the-box
+ * horizontal collision when a process has many same-edge ports with long
+ * names.
+ */
 function drawPortLabel(
   parent: SVGElement,
   port: { x: number; y: number },
   portEdge: Edge,
-  procBox: { x: number; y: number; w: number; h: number },
+  _procBox: { x: number; y: number; w: number; h: number },
   name: string,
   dir: ResolvedWire["direction"],
 ): void {
   const t = document.createElementNS(SVG_NS, "text") as SVGTextElement;
   t.textContent = name;
   t.classList.add("bgv2-port-label", `bgv2-port-label-${dir}`);
-  const inset = 6;
+  t.setAttribute("data-bgv2-from", "");  // populated by caller via dataset on the wire side; not used here
+  const gap = 5;
   if (portEdge === "top") {
+    // Anchor at port, rotate -90° so text reads upward from the glyph.
     t.setAttribute("x", String(port.x));
-    t.setAttribute("y", String(procBox.y + inset + 6));
-    t.setAttribute("text-anchor", "middle");
+    t.setAttribute("y", String(port.y - gap));
+    t.setAttribute("text-anchor", "start");
+    t.setAttribute("transform", `rotate(-90 ${port.x} ${port.y - gap})`);
   } else if (portEdge === "bottom") {
     t.setAttribute("x", String(port.x));
-    t.setAttribute("y", String(procBox.y + procBox.h - inset));
-    t.setAttribute("text-anchor", "middle");
-  } else if (portEdge === "left") {
-    t.setAttribute("x", String(procBox.x + inset));
-    t.setAttribute("y", String(port.y + 3));
+    t.setAttribute("y", String(port.y + gap));
     t.setAttribute("text-anchor", "start");
-  } else {
-    t.setAttribute("x", String(procBox.x + procBox.w - inset));
+    t.setAttribute("transform", `rotate(90 ${port.x} ${port.y + gap})`);
+  } else if (portEdge === "left") {
+    t.setAttribute("x", String(port.x - gap));
     t.setAttribute("y", String(port.y + 3));
     t.setAttribute("text-anchor", "end");
+  } else {
+    t.setAttribute("x", String(port.x + gap));
+    t.setAttribute("y", String(port.y + 3));
+    t.setAttribute("text-anchor", "start");
   }
   parent.appendChild(t);
 }
