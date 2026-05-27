@@ -15,3 +15,14 @@ py/__pycache__/
 
 # OS
 .DS_Store
+
+# Editors / IDEs
+.vscode/
+.idea/
+*.iml
+*.swp
+*.swo
+
+# Env
+.env
+.env.local
