@@ -1,0 +1,20 @@
+.bgv2 {
+  --bgv2-store-bg: #ffffff;
+  --bgv2-store-stroke: #cbd5e1;
+  --bgv2-process-bg: #f1f5f9;
+  --bgv2-process-stroke: #475569;
+  --bgv2-variable-bg: #ffffff;
+  --bgv2-variable-stroke: #0284c7;
+  --bgv2-wire-stroke: #94a3b8;
+  --bgv2-selected: #2563eb;
+  --bgv2-inspector-bg: #ffffff;
+  --bgv2-font: system-ui, -apple-system, sans-serif;
+  --bgv2-font-mono: ui-monospace, "SF Mono", Menlo, monospace;
+
+  display: flex;
+  background: #fafafa;
+  font-family: var(--bgv2-font);
+}
+.bgv2-canvas { flex: 1; position: relative; overflow: hidden; }
+.bgv2-inspector { width: 240px; padding: 14px 16px; background: var(--bgv2-inspector-bg);
+  border-left: 1px solid #e5e7eb; font-size: 12px; }
