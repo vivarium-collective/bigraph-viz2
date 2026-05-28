@@ -11,6 +11,16 @@ import type { SpecNode, NodeId, WirePath } from "./types";
  * would materialize at instantiation time, without requiring all the spec's
  * custom process types to be registered.
  *
+ * Alternative: bigraph-schema's `core.realize(schema, state)` performs the
+ * authoritative projection (type resolution, default-fill, address protocol
+ * handling, etc.) and is exposed in Python via `bigraph_viz2.expand_state`
+ * and `emit_html(..., expand=True)`. That path needs `process_bigraph` (and
+ * any custom process addresses registered into the core) but produces a
+ * spec the renderer can show without this synthetic-walk approximation.
+ * If we ever want schema-aware materialization on the JS side, the seam is
+ * to call expand_state from Python and emit the realized state into the
+ * bundle instead of the raw spec, then disable this pass.
+ *
  * The tree is mutated in place. Re-running is a no-op (existing nodes are
  * reused).
  */
