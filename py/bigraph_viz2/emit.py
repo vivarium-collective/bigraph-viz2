@@ -24,6 +24,7 @@ def emit_html(
     dedupe: bool = False,
     id: str | None = None,
     max_row_width: int = 480,
+    collapsed: list[str] | None = None,
     expand: bool = False,
     core: Any | None = None,
     materialize: bool = True,
@@ -61,6 +62,7 @@ def emit_html(
         "maxRowWidth": max_row_width,
         "id": viz_id,
         "materialize": materialize,
+        "collapsed": collapsed or [],
     })
 
     style = f"height:{height};width:{width}"
