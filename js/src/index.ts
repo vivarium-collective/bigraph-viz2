@@ -13,12 +13,16 @@ import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride } from "./types";
 
-export const version = "0.3.18";
+export const version = "0.3.19";
 
 export interface MountOpts {
   inspector?: boolean;
   maxRowWidth?: number;
   id?: string;
+  /** Node ids to start collapsed (rendered as chips). Applied only on first
+   * mount when the URL hash has no saved collapse state for this viz, so user
+   * expand/collapse still wins on reload. */
+  collapsed?: string[];
   /** If true (default), synthesize any wire-target stores that the spec
    * references but doesn't declare, so wires render. Synthetic nodes appear
    * with a dashed outline. Set false to view the literal spec only. */
@@ -109,7 +113,13 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
 
   const root = normalize(state as Parameters<typeof normalize>[0]);
   if (opts.materialize !== false) materializeWireTargets(root);
+  // Honor saved collapse state from the hash; otherwise fall back to the
+  // caller-provided initial collapsed set (e.g. "start with stores collapsed").
+  const hashHasState = window.location.hash.includes(`bgv2-${vizId}=`);
   let collapsed: Set<NodeId> = decodeHash(window.location.hash, vizId);
+  if (!hashHasState && opts.collapsed?.length) {
+    collapsed = new Set(opts.collapsed);
+  }
   let rowsOverride: RowsOverride = new Map();
   let deleted: Set<NodeId> = new Set();
   let selectedId: NodeId | null = null;
