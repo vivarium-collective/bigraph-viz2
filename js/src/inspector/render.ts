@@ -12,28 +12,43 @@ export function renderInspector(
   const ln = lr.byId.get(selectedId);
   if (!ln) return;
   const node = ln.node;
+
+  // Render a group of ports (Inputs/Outputs/Ports), each with its wire target
+  // and declared schema (type string with units, or a nested schema tree).
+  function renderPorts(
+    title: string,
+    names: string[],
+    ports: Record<string, string[]>,
+    schemas: Record<string, unknown>,
+  ): void {
+    if (!names.length) return;
+    panel.appendChild(label(title));
+    for (const n of names) {
+      panel.appendChild(port(n, (ports[n] ?? []).join("/"), schemas[n]));
+    }
+  }
+
   panel.appendChild(label(`Inspector · ${node.kind}`));
   panel.appendChild(h(node.name));
   if (node.kind === "process") {
     panel.appendChild(p(node.address ?? "(no address)", "mono"));
     panel.appendChild(p(`at: ${parentOf(selectedId)}`, "mono small"));
-    panel.appendChild(label("Config"));
-    panel.appendChild(pre(JSON.stringify(node.config ?? {}, null, 2)));
-    panel.appendChild(label("Ports → wires"));
-    const tbl = document.createElement("table");
-    tbl.className = "bgv2-portmap";
-    for (const [pn, path] of Object.entries(node.ports ?? {})) {
-      const tr = document.createElement("tr");
-      const td1 = document.createElement("td");
-      td1.textContent = pn;
-      const td2 = document.createElement("td");
-      td2.textContent = path.join("/");
-      td2.className = "mono";
-      tr.appendChild(td1);
-      tr.appendChild(td2);
-      tbl.appendChild(tr);
+    // Only show Config when it actually carries something — process configs are
+    // often consumed at construction time and empty in the live state.
+    if (node.config && typeof node.config === "object" && Object.keys(node.config).length) {
+      panel.appendChild(label("Config"));
+      panel.appendChild(pre(JSON.stringify(node.config, null, 2)));
     }
-    panel.appendChild(tbl);
+    const ports = node.ports ?? {};
+    const dirs = node.portDirections ?? {};
+    const schemas = node.portSchemas ?? {};
+    const names = Object.keys(ports);
+    const ins = names.filter(n => dirs[n] === "in");
+    const outs = names.filter(n => dirs[n] === "out");
+    const other = names.filter(n => dirs[n] !== "in" && dirs[n] !== "out");
+    renderPorts("Inputs", ins, ports, schemas);
+    renderPorts("Outputs", outs, ports, schemas);
+    renderPorts("Ports", other, ports, schemas);
   } else if (node.kind === "variable") {
     panel.appendChild(p(node.type ?? "(no declared type)", "mono"));
     panel.appendChild(p(`at: ${parentOf(selectedId)}`, "mono small"));
@@ -50,3 +65,22 @@ function h(t: string): HTMLElement     { const e = document.createElement("div")
 function p(t: string, cls = ""): HTMLElement { const e = document.createElement("div"); e.className = `bgv2-insp-p ${cls}`; e.textContent = t; return e; }
 function pre(t: string): HTMLElement   { const e = document.createElement("pre"); e.className = "bgv2-insp-pre"; e.textContent = t; return e; }
 function parentOf(id: NodeId): string { const i = id.lastIndexOf("/"); return i < 0 ? "(root)" : id.slice(0, i); }
+
+/** One port block: name, its declared schema (type/units), and its wire path. */
+function port(name: string, wire: string, schema: unknown): HTMLElement {
+  const box = document.createElement("div");
+  box.className = "bgv2-insp-port";
+  const nm = document.createElement("div");
+  nm.className = "bgv2-insp-portname";
+  nm.textContent = name;
+  box.appendChild(nm);
+  if (typeof schema === "string") {
+    box.appendChild(p(schema, "mono"));               // e.g. quantity[float,fg]
+  } else if (schema && typeof schema === "object") {
+    box.appendChild(pre(JSON.stringify(schema, null, 2)));  // nested type tree
+  } else {
+    box.appendChild(p("(no declared schema)", "muted small"));
+  }
+  if (wire) box.appendChild(p(`→ ${wire}`, "mono small"));
+  return box;
+}

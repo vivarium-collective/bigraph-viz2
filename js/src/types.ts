@@ -24,6 +24,9 @@ export interface SpecNode {
   config?: unknown;
   ports?: Record<string, WirePath>; // port_name -> wire path (relative/absolute)
   portDirections?: Record<string, PortDirection>;  // direction lookup, defaults "both"
+  // port_name -> declared schema for that port (a type string like
+  // "quantity[float,fg]", or a nested schema tree). Surfaces units/types.
+  portSchemas?: Record<string, unknown>;
   // variable-only:
   type?: string;                    // declared type, if present
   value?: unknown;
