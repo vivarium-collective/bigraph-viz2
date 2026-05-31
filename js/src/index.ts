@@ -13,7 +13,7 @@ import { renderPanel, collectProcesses, buildNodeTree, type PanelTab } from "./p
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride, LayoutResult } from "./types";
 
-export const version = "0.3.20";
+export const version = "0.3.21";
 
 export interface MountOpts {
   inspector?: boolean;

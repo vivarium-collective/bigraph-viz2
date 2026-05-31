@@ -27,6 +27,12 @@ export interface SpecNode {
   // port_name -> declared schema for that port (a type string like
   // "quantity[float,fg]", or a nested schema tree). Surfaces units/types.
   portSchemas?: Record<string, unknown>;
+  // True input/output port schemas (keys are the real directional ports, unlike
+  // the merged `ports` which can't distinguish a read-write port). Drives the
+  // inspector's Inputs/Outputs sections.
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
+  doc?: string;                     // process class docstring (math description)
   // variable-only:
   type?: string;                    // declared type, if present
   value?: unknown;
