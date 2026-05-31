@@ -1,17 +1,26 @@
 const DRAG_THRESHOLD = 4;  // px before mousedown→mousemove counts as a pan, not a click
 
+export interface ViewTransform { tx: number; ty: number; s: number; }
+
 export interface PanZoomOpts {
   /** Returns true when a node-drag gesture is in progress; pan should bail. */
   isLocked?: () => boolean;
+  /** Seed the camera with a previous transform so the viewport survives a
+   * re-render (e.g. after collapse/expand). Defaults to identity. */
+  initial?: ViewTransform;
+  /** Called whenever the transform changes, so the caller can persist it and
+   * re-seed the next mount with `initial`. */
+  onChange?: (v: ViewTransform) => void;
 }
 
 export function attachPanZoom(svg: SVGSVGElement, rootG: SVGGElement, opts: PanZoomOpts = {}): () => void {
-  let tx = 0, ty = 0, s = 1;
+  let tx = opts.initial?.tx ?? 0, ty = opts.initial?.ty ?? 0, s = opts.initial?.s ?? 1;
   let armed = false, didMove = false;
   let startX = 0, startY = 0, startTx = 0, startTy = 0;
 
   function apply() {
     rootG.setAttribute("transform", `translate(${tx},${ty}) scale(${s})`);
+    opts.onChange?.({ tx, ty, s });
   }
   apply();
   svg.style.cursor = "grab";

@@ -3,7 +3,7 @@ import { normalize } from "./normalize";
 import { materializeWireTargets } from "./materialize";
 import { layout } from "./layout";
 import { renderSvg } from "./render/svg";
-import { attachPanZoom } from "./interact/panzoom";
+import { attachPanZoom, type ViewTransform } from "./interact/panzoom";
 import { attachHover } from "./interact/hover";
 import { attachClick } from "./interact/click";
 import { attachCollapse } from "./interact/collapse";
@@ -13,7 +13,7 @@ import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride } from "./types";
 
-export const version = "0.3.16";
+export const version = "0.3.17";
 
 export interface MountOpts {
   inspector?: boolean;
@@ -43,6 +43,19 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   canvas.className = "bgv2-canvas";
   el.appendChild(canvas);
 
+  // Persistent "reset view" control: restores the default camera (identity
+  // pan/zoom). Created once and overlaid on the canvas; survives re-renders.
+  const resetBtn = document.createElement("button");
+  resetBtn.className = "bgv2-reset";
+  resetBtn.type = "button";
+  resetBtn.title = "Reset view";
+  resetBtn.textContent = "Reset view";
+  resetBtn.addEventListener("click", () => {
+    view = { tx: 0, ty: 0, s: 1 };
+    rerender();
+  });
+  canvas.appendChild(resetBtn);
+
   const inspectorEl = showInspector ? document.createElement("div") : null;
   if (inspectorEl) { inspectorEl.className = "bgv2-inspector"; el.appendChild(inspectorEl); }
 
@@ -52,11 +65,15 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   let rowsOverride: RowsOverride = new Map();
   let deleted: Set<NodeId> = new Set();
   let selectedId: NodeId | null = null;
+  // Persisted camera transform so collapse/expand/drag/delete re-renders keep
+  // the user looking at the same place instead of snapping back to identity.
+  let view: ViewTransform = { tx: 0, ty: 0, s: 1 };
   const detachers: Array<() => void> = [];
 
   function rerender() {
     detachers.forEach(d => d()); detachers.length = 0;
-    canvas.innerHTML = "";
+    // Remove only the prior SVG, preserving persistent overlays (reset button).
+    canvas.querySelector(".bgv2-svg")?.remove();
     const lr = layout(root, collapsed, maxRowWidth, rowsOverride, deleted);
     const svg = renderSvg(lr);
     canvas.appendChild(svg);
@@ -69,6 +86,8 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
 
     detachers.push(attachPanZoom(svg, svg.querySelector(".bgv2-root")!, {
       isLocked: drag.isActive,
+      initial: view,
+      onChange: (v) => { view = v; },
     }));
     detachers.push(attachHover(svg, lr));
     detachers.push(attachClick(svg, lr, (sel) => {

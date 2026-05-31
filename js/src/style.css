@@ -16,6 +16,16 @@
   font-family: var(--bgv2-font);
 }
 .bgv2-canvas { flex: 1; position: relative; overflow: hidden; }
+.bgv2-reset {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  font: 600 11px var(--bgv2-font);
+  color: #334155; background: rgba(255,255,255,0.92);
+  border: 1px solid #cbd5e1; border-radius: 6px;
+  padding: 5px 10px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.12);
+}
+.bgv2-reset:hover { background: #fff; border-color: #94a3b8; }
+.bgv2-reset:active { background: #f1f5f9; }
 .bgv2-inspector { width: 240px; padding: 14px 16px; background: var(--bgv2-inspector-bg);
   border-left: 1px solid #e5e7eb; font-size: 12px; }
 
