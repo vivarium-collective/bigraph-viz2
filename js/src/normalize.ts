@@ -17,13 +17,14 @@ type RawChild = {
   // inputs/outputs above, which carry the WIRE PATHS.
   inputSchema?: Record<string, unknown>;
   outputSchema?: Record<string, unknown>;
+  doc?: string;
   type?: string;
   value?: unknown;
 } & Record<string, unknown>;
 
 const PROCESS_KEYS = new Set([
   "_type", "address", "config", "ports", "inputs", "outputs",
-  "inputSchema", "outputSchema", "type", "value",
+  "inputSchema", "outputSchema", "doc", "type", "value",
 ]);
 
 export function normalize(raw: RawSpec): SpecNode {
@@ -118,6 +119,7 @@ function buildNode(
       id: path, name, kind: "process", children: [],
       address: obj.address, config: obj.config, ports, portDirections,
       portSchemas: Object.keys(portSchemas).length ? portSchemas : undefined,
+      inputSchema: obj.inputSchema, outputSchema: obj.outputSchema, doc: obj.doc,
     };
   }
   // store: walk children = entries that aren't process/variable metadata keys

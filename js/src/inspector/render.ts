@@ -33,6 +33,11 @@ export function renderInspector(
   if (node.kind === "process") {
     panel.appendChild(p(node.address ?? "(no address)", "mono"));
     panel.appendChild(p(`at: ${parentOf(selectedId)}`, "mono small"));
+    // Class docstring — often the mathematical description of the process.
+    if (node.doc) {
+      panel.appendChild(label("Description"));
+      panel.appendChild(pre(node.doc));
+    }
     // Only show Config when it actually carries something — process configs are
     // often consumed at construction time and empty in the live state.
     if (node.config && typeof node.config === "object" && Object.keys(node.config).length) {
@@ -40,15 +45,22 @@ export function renderInspector(
       panel.appendChild(pre(JSON.stringify(node.config, null, 2)));
     }
     const ports = node.ports ?? {};
-    const dirs = node.portDirections ?? {};
-    const schemas = node.portSchemas ?? {};
-    const names = Object.keys(ports);
-    const ins = names.filter(n => dirs[n] === "in");
-    const outs = names.filter(n => dirs[n] === "out");
-    const other = names.filter(n => dirs[n] !== "in" && dirs[n] !== "out");
-    renderPorts("Inputs", ins, ports, schemas);
-    renderPorts("Outputs", outs, ports, schemas);
-    renderPorts("Ports", other, ports, schemas);
+    if (node.inputSchema || node.outputSchema) {
+      // True directional ports from the process interface. A read-write port
+      // legitimately appears in BOTH sections.
+      const inS = node.inputSchema ?? {};
+      const outS = node.outputSchema ?? {};
+      renderPorts("Inputs", Object.keys(inS), ports, inS);
+      renderPorts("Outputs", Object.keys(outS), ports, outS);
+    } else {
+      // Fallback for specs without interface schemas: group the merged ports.
+      const dirs = node.portDirections ?? {};
+      const schemas = node.portSchemas ?? {};
+      const names = Object.keys(ports);
+      renderPorts("Inputs", names.filter(n => dirs[n] === "in"), ports, schemas);
+      renderPorts("Outputs", names.filter(n => dirs[n] === "out"), ports, schemas);
+      renderPorts("Ports", names.filter(n => dirs[n] !== "in" && dirs[n] !== "out"), ports, schemas);
+    }
   } else if (node.kind === "variable") {
     panel.appendChild(p(node.type ?? "(no declared type)", "mono"));
     panel.appendChild(p(`at: ${parentOf(selectedId)}`, "mono small"));
