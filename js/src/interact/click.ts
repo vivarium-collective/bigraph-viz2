@@ -10,7 +10,9 @@ export interface ClickOpts {
 export function attachClick(
   svg: SVGSVGElement, _lr: LayoutResult, onSelect: SelectionCallback, opts: ClickOpts = {},
 ): () => void {
-  onSelect(null);
+  // Note: selection is NOT reset on attach — the caller persists `selectedId`
+  // across re-renders (and re-applies the highlight), so a selection survives
+  // collapse/expand/hide and Processes-tab clicks.
   function onClick(e: MouseEvent) {
     if (opts.isLocked && opts.isLocked()) return;
     const target = (e.target as Element).closest(".bgv2-node");

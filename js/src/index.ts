@@ -9,11 +9,11 @@ import { attachClick } from "./interact/click";
 import { attachCollapse } from "./interact/collapse";
 import { attachDragNode } from "./interact/dragnode";
 import { attachDelete } from "./interact/delete";
-import { renderInspector } from "./inspector/render";
+import { renderPanel, collectProcesses, buildNodeTree, type PanelTab } from "./panel/render";
 import { decodeHash } from "./hash/sync";
-import type { NodeId, RowsOverride } from "./types";
+import type { NodeId, RowsOverride, LayoutResult } from "./types";
 
-export const version = "0.3.19";
+export const version = "0.3.20";
 
 export interface MountOpts {
   inspector?: boolean;
@@ -121,20 +121,69 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     collapsed = new Set(opts.collapsed);
   }
   let rowsOverride: RowsOverride = new Map();
-  let deleted: Set<NodeId> = new Set();
   let selectedId: NodeId | null = null;
   // Persisted camera transform so collapse/expand/drag/delete re-renders keep
   // the user looking at the same place instead of snapping back to identity.
   let view: ViewTransform = { tx: 0, ty: 0, s: 1 };
+  // Right-panel state: which tab and which nodes are hidden. Deleting a node
+  // (select + Delete) and switching a process off in the Processes tab share
+  // this ONE `hidden` set — so a deleted process appears switched off and is
+  // recovered by flipping it back on (or "Show all hidden"). `deleteHistory`
+  // backs Cmd/Ctrl+Z and persists across re-renders.
+  let activeTab: PanelTab = "inspector";
+  let hidden: Set<NodeId> = new Set();
+  const deleteHistory: NodeId[] = [];
+  let pendingCenterId: NodeId | null = null;
+  let currentLr: LayoutResult | null = null;
+  const processList = collectProcesses(root);
+  const nodeTree = buildNodeTree(root);
+  const expanded: Set<NodeId> = new Set();
   const detachers: Array<() => void> = [];
+
+  function paintPanel(lr: LayoutResult): void {
+    if (!inspectorEl) return;
+    renderPanel(inspectorEl, lr, { activeTab, selectedId, hidden, processes: processList, nodeTree, expanded }, {
+      onTab: (t) => { activeTab = t; if (currentLr) paintPanel(currentLr); },
+      onToggleHidden: (id, hide) => { if (hide) hidden.add(id); else hidden.delete(id); rerender(); },
+      onShowAll: () => { hidden.clear(); rerender(); },
+      onToggleExpand: (id) => {
+        if (expanded.has(id)) expanded.delete(id); else expanded.add(id);
+        if (currentLr) paintPanel(currentLr);   // panel-only; no diagram relayout
+      },
+      onSelectNode: (id) => {
+        hidden.delete(id);          // ensure it's visible to highlight
+        selectedId = id;
+        pendingCenterId = id;       // recenter on it after relayout
+        rerender();
+      },
+    });
+  }
 
   function rerender() {
     detachers.forEach(d => d()); detachers.length = 0;
     // Remove only the prior SVG, preserving persistent overlays (reset button).
     canvas.querySelector(".bgv2-svg")?.remove();
-    const lr = layout(root, collapsed, maxRowWidth, rowsOverride, deleted);
+    // Hidden nodes (Delete key OR a Processes-tab switch) are filtered out.
+    const lr = layout(root, collapsed, maxRowWidth, rowsOverride, hidden);
+    currentLr = lr;
+    // Honor a pending "center on this node" request (e.g. Processes-tab click)
+    // by seeding the camera so the node sits in the middle of the canvas.
+    if (pendingCenterId) {
+      const ln = lr.byId.get(pendingCenterId);
+      const cw = canvas.clientWidth, ch = canvas.clientHeight;
+      if (ln && cw > 0 && ch > 0) {
+        const s = view.s || 1;
+        const b = ln.bbox;
+        view = { s, tx: cw / 2 - s * (b.x + b.w / 2), ty: ch / 2 - s * (b.y + b.h / 2) };
+      }
+      pendingCenterId = null;
+    }
     const svg = renderSvg(lr);
     canvas.appendChild(svg);
+    // Re-apply the selection highlight after the SVG is rebuilt.
+    if (selectedId) {
+      svg.querySelector(`[data-bgv2-id="${selectedId}"]`)?.classList.add("bgv2-selected");
+    }
 
     const drag = attachDragNode(svg, lr, rowsOverride, (next) => {
       rowsOverride = next;
@@ -150,19 +199,19 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     detachers.push(attachHover(svg, lr));
     detachers.push(attachClick(svg, lr, (sel) => {
       selectedId = sel;
-      if (inspectorEl) renderInspector(inspectorEl, lr, sel);
+      paintPanel(lr);
     }, { isLocked: drag.isActive }));
     detachers.push(attachCollapse(svg, root, vizId, collapsed, (next) => {
       collapsed = next; rerender();
     }));
-    detachers.push(attachDelete(svg, () => selectedId, deleted, (next) => {
-      deleted = next;
-      // If we just deleted the selected node, clear the selection so the next
+    detachers.push(attachDelete(svg, () => selectedId, hidden, (next) => {
+      hidden = next;
+      // If we just hid the selected node, clear the selection so the next
       // delete doesn't act on a stale id.
       if (selectedId && next.has(selectedId)) selectedId = null;
       rerender();
-    }));
-    if (inspectorEl) renderInspector(inspectorEl, lr, selectedId);
+    }, deleteHistory));
+    paintPanel(lr);
   }
   rerender();
   INSTANCES.set(el, { detachers, mountDetachers });

@@ -15,9 +15,11 @@ export function attachDelete(
   getSelectedId: () => NodeId | null,
   currentDeleted: Set<NodeId>,
   onChange: (next: Set<NodeId>) => void,
+  history?: NodeId[],
 ): () => void {
-  // History stack lives in this closure so undo is per-mount.
-  const undoStack: NodeId[] = [];
+  // Undo history. Pass one in from the caller so it survives re-renders (this
+  // function is re-attached on every render); fall back to a local stack.
+  const undoStack: NodeId[] = history ?? [];
 
   function onKey(e: KeyboardEvent) {
     // Don't hijack typing in form inputs (none in our DOM today, but

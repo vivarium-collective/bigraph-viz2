@@ -128,7 +128,7 @@ function buildNode(
   });
   // stable child order: stores first, then processes, then variables
   children.sort((a, b) => kindRank(a.kind) - kindRank(b.kind));
-  return { id: path, name, kind: "store", children };
+  return { id: path, name, kind: "store", children, type: obj.type };
 }
 
 function inferChildKind(raw: unknown): NodeKind {
