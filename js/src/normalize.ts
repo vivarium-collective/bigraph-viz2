@@ -13,12 +13,17 @@ type RawChild = {
   ports?: Record<string, WirePath>;
   inputs?: Record<string, WirePath>;
   outputs?: Record<string, WirePath>;
+  // Declared port schemas (type trees), keyed by port name. Distinct from
+  // inputs/outputs above, which carry the WIRE PATHS.
+  inputSchema?: Record<string, unknown>;
+  outputSchema?: Record<string, unknown>;
   type?: string;
   value?: unknown;
 } & Record<string, unknown>;
 
 const PROCESS_KEYS = new Set([
-  "_type", "address", "config", "ports", "inputs", "outputs", "type", "value",
+  "_type", "address", "config", "ports", "inputs", "outputs",
+  "inputSchema", "outputSchema", "type", "value",
 ]);
 
 export function normalize(raw: RawSpec): SpecNode {
@@ -105,9 +110,14 @@ function buildNode(
     for (const [n, w] of Object.entries(obj.outputs ?? {})) {
       ports[n] = w; portDirections[n] = "out";
     }
+    // Declared port schemas (type trees with units), keyed by port name.
+    const portSchemas: Record<string, unknown> = {};
+    for (const [n, s] of Object.entries(obj.inputSchema ?? {})) portSchemas[n] = s;
+    for (const [n, s] of Object.entries(obj.outputSchema ?? {})) portSchemas[n] = s;
     return {
       id: path, name, kind: "process", children: [],
       address: obj.address, config: obj.config, ports, portDirections,
+      portSchemas: Object.keys(portSchemas).length ? portSchemas : undefined,
     };
   }
   // store: walk children = entries that aren't process/variable metadata keys

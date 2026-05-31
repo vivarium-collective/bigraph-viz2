@@ -1,6 +1,7 @@
 import type { LayoutNode, NodeId, ResolvedWire, BBox } from "../types";
 import { chooseEdge, portPosition } from "../wires/ports";
 import type { Edge } from "../wires/ports";
+import { buildRouter, type Router } from "./route";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 
@@ -13,6 +14,17 @@ const OBSTACLE_CLEARANCE = 8;
 // Cap on lateral nudge so a single wire doesn't fly across the whole canvas.
 const MAX_DETOUR = 90;
 
+// --- Orthogonal channel routing tunables -----------------------------------
+// Perpendicular stub length: how far a wire travels straight out of its port
+// (and straight into its target) before it is allowed to turn. Gives every
+// wire a clean, readable "exit" and keeps turns away from the glyphs.
+const STUB = 18;
+// Spacing between parallel wires sharing a trunk, so a bundle of wires reads as
+// a set of distinct channels rather than one thick smear.
+const LANE_GAP = 7;
+// Corner radius for the rounded orthogonal bends ("delicate" turns).
+const CORNER_R = 8;
+
 export function renderWires(
   wireParent: SVGElement,
   glyphParent: SVGElement,
@@ -23,10 +35,21 @@ export function renderWires(
   // Stores (which CONTAIN the wire's endpoints) and chip bboxes are skipped
   // — only leaves (variables, processes, collapsed chips) act as obstacles.
   const obstacles: Array<{ id: NodeId; box: BBox }> = [];
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
   for (const ln of byId.values()) {
+    const b = ln.bbox;
+    minX = Math.min(minX, b.x); minY = Math.min(minY, b.y);
+    maxX = Math.max(maxX, b.x + b.w); maxY = Math.max(maxY, b.y + b.h);
     if (ln.node.kind === "store" && !ln.collapsed) continue;
     obstacles.push({ id: ln.node.id, box: ln.bbox });
   }
+  // A* router that threads wires AROUND the solid glyphs. Built once and shared
+  // across every wire; bounds are padded so routes can use the outer margins.
+  const PAD = 60;
+  const router = buildRouter(
+    obstacles.map(o => o.box),
+    { x: minX - PAD, y: minY - PAD, w: (maxX - minX) + 2 * PAD, h: (maxY - minY) + 2 * PAD },
+  );
   const byProc = new Map<NodeId, ResolvedWire[]>();
   for (const w of wires) {
     let list = byProc.get(w.processId);
@@ -68,8 +91,13 @@ export function renderWires(
       }
       group.forEach((a, i) => {
         const port = portPosition(procBox, e, i, group.length);
-        const detour = detourOffset(port, a.endpoint, obstacles, a.w.processId, a.w.targetId);
-        drawBezierWire(wireParent, glyphParent, port, e, a.endpoint, a.w, detour);
+        // Lane index centered on 0 so a bundle fans symmetrically about its
+        // trunk; each wire in the group gets its own parallel channel.
+        const lane = i - (group.length - 1) / 2;
+        drawChannelWire(
+          wireParent, glyphParent, port, e, a.endpoint, a.w, lane,
+          router, obstacles,
+        );
         drawPortLabel(glyphParent, port, e, procBox, a.w.portName, a.w.direction, a.w.processId, a.w.targetId);
       });
     }
@@ -139,36 +167,61 @@ function drawPortLabel(
   parent.appendChild(t);
 }
 
-function drawBezierWire(
+/**
+ * Route one wire as a rounded orthogonal connector. A perpendicular stub leaves
+ * the port and enters the target; between the stub ends an A* router finds a
+ * path of axis-aligned segments that goes AROUND obstacle glyphs. Corners are
+ * rounded so the path bends rather than spiking. Per-lane stub stagger keeps a
+ * bundle's turn points from coinciding. If routing fails the wire falls back to
+ * a simple trunk (nudged off node centers).
+ */
+function drawChannelWire(
   wireParent: SVGElement,
   glyphParent: SVGElement,
   port: { x: number; y: number },
   portEdge: Edge,
   end: { x: number; y: number; approachEdge: Edge },
   w: ResolvedWire,
-  detour: { dx: number; dy: number },
+  lane: number,
+  router: Router,
+  obstacles: Array<{ id: NodeId; box: BBox }>,
 ): void {
-  const dx = end.x - port.x;
-  const dy = end.y - port.y;
-  const dist = Math.hypot(dx, dy);
-  const offset = Math.max(28, Math.min(140, dist * 0.45));
-
   const pn = edgeNormal(portEdge);
   const an = edgeNormal(end.approachEdge);
+  // Stagger stub depth slightly per lane so a bundle's turn points don't all
+  // line up — this also gives each wire its own grid line into the router.
+  const stubP = STUB + Math.abs(lane) * LANE_GAP;
+  const stubE = STUB + Math.abs(lane) * LANE_GAP;
 
-  // Base control points along each end's edge-normal, plus a lateral nudge
-  // computed by detourOffset() so the wire bulges around any node bboxes
-  // its straight path would cross.
-  const c1x = port.x + pn.dx * offset + detour.dx;
-  const c1y = port.y + pn.dy * offset + detour.dy;
-  const c2x = end.x + an.dx * offset + detour.dx;
-  const c2y = end.y + an.dy * offset + detour.dy;
+  const p1 = { x: port.x + pn.dx * stubP, y: port.y + pn.dy * stubP };
+  const e1 = { x: end.x + an.dx * stubE, y: end.y + an.dy * stubE };
+
+  const pts: Array<{ x: number; y: number }> = [{ x: port.x, y: port.y }];
+  const routed = router.route(p1, e1);
+  if (routed && routed.length >= 2) {
+    pts.push(...routed);                       // routed[0]=p1 … routed[last]=e1
+  } else {
+    // Fallback: perpendicular stubs + a single nudged trunk.
+    const exitVert = portEdge === "top" || portEdge === "bottom";
+    const entryVert = end.approachEdge === "top" || end.approachEdge === "bottom";
+    pts.push(p1);
+    if (exitVert && entryVert) {
+      const trunkY = nudgeTrunk("h", (p1.y + e1.y) / 2, p1.x, e1.x, obstacles, w);
+      pts.push({ x: p1.x, y: trunkY }, { x: e1.x, y: trunkY });
+    } else if (!exitVert && !entryVert) {
+      const trunkX = nudgeTrunk("v", (p1.x + e1.x) / 2, p1.y, e1.y, obstacles, w);
+      pts.push({ x: trunkX, y: p1.y }, { x: trunkX, y: e1.y });
+    } else if (exitVert) {
+      pts.push({ x: p1.x, y: e1.y });
+    } else {
+      pts.push({ x: e1.x, y: p1.y });
+    }
+    pts.push(e1);
+  }
+  pts.push({ x: end.x, y: end.y });
 
   const path = document.createElementNS(SVG_NS, "path");
-  path.setAttribute(
-    "d",
-    `M ${port.x} ${port.y} C ${c1x} ${c1y} ${c2x} ${c2y} ${end.x} ${end.y}`,
-  );
+  path.setAttribute("d", roundedPath(dedupePoints(pts), CORNER_R));
   // Stroke widths in SCREEN pixels regardless of viewBox scale. Chunky 8/4
   // dash pattern reads clearly as a dashed line at small canvas scales
   // without disappearing into noise.
@@ -251,46 +304,70 @@ function visualEndpoint(
   return { x: e.x, y: e.y, approachEdge };
 }
 
-/**
- * Detect which non-endpoint node bboxes the straight line `port → end` would
- * cross, and compute a perpendicular nudge that pushes the bezier control
- * points sideways to detour around them. Returns the (dx, dy) to add to both
- * control points; magnitude is capped at MAX_DETOUR.
- */
-function detourOffset(
-  port: { x: number; y: number },
-  end: { x: number; y: number },
-  obstacles: Array<{ id: NodeId; box: BBox }>,
-  processId: NodeId,
-  targetId: NodeId,
-): { dx: number; dy: number } {
-  const dx = end.x - port.x;
-  const dy = end.y - port.y;
-  const len = Math.hypot(dx, dy);
-  if (len < 1) return { dx: 0, dy: 0 };
-  const ux = dx / len, uy = dy / len;
-  // 90° CCW perpendicular
-  const px = -uy, py = ux;
-  let push = 0;
-  for (const o of obstacles) {
-    if (o.id === processId || o.id === targetId) continue;
-    const cx = o.box.x + o.box.w / 2;
-    const cy = o.box.y + o.box.h / 2;
-    // Project obstacle center onto the line; skip if past the endpoints.
-    const t = (cx - port.x) * ux + (cy - port.y) * uy;
-    if (t <= 10 || t >= len - 10) continue;
-    // Signed perpendicular distance from line to obstacle center
-    const perpDist = (cx - port.x) * px + (cy - port.y) * py;
-    const halfRadius = Math.max(o.box.w, o.box.h) / 2;
-    const overlap = halfRadius + OBSTACLE_CLEARANCE - Math.abs(perpDist);
-    if (overlap > 0) {
-      // Push the wire opposite to the obstacle's perpendicular position.
-      push += -Math.sign(perpDist || 1) * overlap;
+/** Drop consecutive duplicate / colinear-collapsed points so roundedPath()
+ * never sees a zero-length segment (which would produce a NaN arc). */
+function dedupePoints(pts: Array<{ x: number; y: number }>): Array<{ x: number; y: number }> {
+  const out: Array<{ x: number; y: number }> = [];
+  for (const p of pts) {
+    const last = out[out.length - 1];
+    if (!last || Math.abs(last.x - p.x) > 0.5 || Math.abs(last.y - p.y) > 0.5) {
+      out.push(p);
     }
   }
-  if (push === 0) return { dx: 0, dy: 0 };
-  const clamped = Math.max(-MAX_DETOUR, Math.min(MAX_DETOUR, push));
-  return { dx: px * clamped, dy: py * clamped };
+  return out;
+}
+
+/** Build an SVG path from an axis-aligned polyline, rounding each interior
+ * vertex with a quadratic-bezier corner of radius up to `r`. */
+function roundedPath(pts: Array<{ x: number; y: number }>, r: number): string {
+  if (pts.length < 2) return "";
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  for (let i = 1; i < pts.length - 1; i++) {
+    const prev = pts[i - 1], cur = pts[i], next = pts[i + 1];
+    const inLen = Math.hypot(cur.x - prev.x, cur.y - prev.y) || 1;
+    const outLen = Math.hypot(next.x - cur.x, next.y - cur.y) || 1;
+    const rr = Math.min(r, inLen / 2, outLen / 2);
+    const ix = cur.x - ((cur.x - prev.x) / inLen) * rr;
+    const iy = cur.y - ((cur.y - prev.y) / inLen) * rr;
+    const ox = cur.x + ((next.x - cur.x) / outLen) * rr;
+    const oy = cur.y + ((next.y - cur.y) / outLen) * rr;
+    d += ` L ${ix} ${iy} Q ${cur.x} ${cur.y} ${ox} ${oy}`;
+  }
+  const last = pts[pts.length - 1];
+  d += ` L ${last.x} ${last.y}`;
+  return d;
+}
+
+/**
+ * Nudge a trunk segment off any node centers it would cross. `axis` is the
+ * orientation of the trunk line ("h" = horizontal trunk at y=`coord` spanning
+ * x in [a,b]; "v" = vertical trunk at x=`coord` spanning y in [a,b]). Returns a
+ * shifted `coord` that clears obstacle bands, capped at MAX_DETOUR.
+ */
+function nudgeTrunk(
+  axis: "h" | "v",
+  coord: number,
+  a: number,
+  b: number,
+  obstacles: Array<{ id: NodeId; box: BBox }>,
+  w: ResolvedWire,
+): number {
+  const lo = Math.min(a, b), hi = Math.max(a, b);
+  let push = 0;
+  for (const o of obstacles) {
+    if (o.id === w.processId || o.id === w.targetId) continue;
+    const cx = o.box.x + o.box.w / 2;
+    const cy = o.box.y + o.box.h / 2;
+    // Along-trunk position and across-trunk distance depend on orientation.
+    const along = axis === "h" ? cx : cy;
+    const across = axis === "h" ? cy : cx;
+    if (along <= lo + 6 || along >= hi - 6) continue;
+    const half = (axis === "h" ? o.box.h : o.box.w) / 2;
+    const overlap = half + OBSTACLE_CLEARANCE - Math.abs(across - coord);
+    if (overlap > 0) push += -Math.sign(across - coord || 1) * overlap;
+  }
+  if (push === 0) return coord;
+  return coord + Math.max(-MAX_DETOUR, Math.min(MAX_DETOUR, push));
 }
 
 function edgeNormal(e: Edge): { dx: number; dy: number } {

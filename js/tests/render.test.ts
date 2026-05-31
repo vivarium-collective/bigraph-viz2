@@ -53,7 +53,9 @@ describe("renderSvg", () => {
     const svg = renderSvg(lr);
     const wires = svg.querySelectorAll("path.bgv2-wire");
     expect(wires.length).toBe(lr.wires.length);
-    wires.forEach(w => expect(w.getAttribute("d")).toMatch(/^M .* C /));
+    // Rounded orthogonal routing: each wire is a polyline with quadratic-bezier
+    // (Q) corners — starts with a moveto and contains at least one curved bend.
+    wires.forEach(w => expect(w.getAttribute("d")).toMatch(/^M .* Q /));
   });
 
   it("renders collapsed stores as a dashed chip with badge", () => {

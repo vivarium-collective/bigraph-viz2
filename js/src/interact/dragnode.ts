@@ -336,7 +336,11 @@ function findInRows(rows: NodeId[][], id: NodeId): OriginalLoc {
 function clientToSvg(svg: SVGSVGElement, clientX: number, clientY: number): { x: number; y: number } {
   const pt = svg.createSVGPoint();
   pt.x = clientX; pt.y = clientY;
-  const ctm = svg.getScreenCTM();
+  // Slots/ghost live in the layout coordinate space INSIDE the pan/zoom group
+  // (.bgv2-root). Use that group's screen CTM so the conversion accounts for
+  // the current pan & zoom — using the <svg>'s CTM only works at identity.
+  const xformEl = (svg.querySelector(".bgv2-root") as SVGGraphicsElement | null) ?? svg;
+  const ctm = xformEl.getScreenCTM();
   if (!ctm) return { x: clientX, y: clientY };
   const p = pt.matrixTransform(ctm.inverse());
   return { x: p.x, y: p.y };

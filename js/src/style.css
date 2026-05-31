@@ -16,8 +16,31 @@
   font-family: var(--bgv2-font);
 }
 .bgv2-canvas { flex: 1; position: relative; overflow: hidden; }
-.bgv2-inspector { width: 240px; padding: 14px 16px; background: var(--bgv2-inspector-bg);
-  border-left: 1px solid #e5e7eb; font-size: 12px; }
+.bgv2-reset {
+  position: absolute; top: 10px; right: 10px; z-index: 5;
+  font: 600 11px var(--bgv2-font);
+  color: #334155; background: rgba(255,255,255,0.92);
+  border: 1px solid #cbd5e1; border-radius: 6px;
+  padding: 5px 10px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.12);
+}
+.bgv2-reset:hover { background: #fff; border-color: #94a3b8; }
+.bgv2-reset:active { background: #f1f5f9; }
+.bgv2-inspector { width: 280px; flex: 0 0 auto; padding: 14px 16px; background: var(--bgv2-inspector-bg);
+  border-left: 1px solid #e5e7eb; font-size: 12px; overflow-y: auto; overflow-x: hidden; }
+.bgv2.bgv2-inspector-collapsed .bgv2-inspector { display: none; }
+
+/* Draggable divider between canvas and inspector; carries the collapse toggle. */
+.bgv2-resize { flex: 0 0 6px; cursor: col-resize; background: #e5e7eb; position: relative; }
+.bgv2-resize:hover { background: #cbd5e1; }
+.bgv2-collapse-btn {
+  position: absolute; top: 10px; left: -11px; z-index: 6;
+  width: 16px; height: 26px; padding: 0; line-height: 24px;
+  font: 600 12px var(--bgv2-font); color: #475569;
+  background: #fff; border: 1px solid #cbd5e1; border-radius: 4px;
+  cursor: pointer; box-shadow: 0 1px 2px rgba(15,23,42,0.12);
+}
+.bgv2-collapse-btn:hover { background: #f1f5f9; border-color: #94a3b8; }
 
 .bgv2-svg { width: 100%; height: 100%; display: block; }
 .bgv2-store { fill: var(--bgv2-store-bg); stroke: var(--bgv2-store-stroke); stroke-width: 1.5; }
@@ -33,13 +56,17 @@
 .bgv2-insp-label { font-size: 10px; text-transform: uppercase; letter-spacing: .06em; color: #64748b; margin: 12px 0 4px; }
 .bgv2-insp-name  { font-size: 14px; font-weight: 600; color: #0f172a; }
 .bgv2-insp-p     { font-size: 12px; color: #475569; margin: 2px 0; }
-.bgv2-insp-p.mono { font-family: var(--bgv2-font-mono); }
+.bgv2-insp-p.mono { font-family: var(--bgv2-font-mono); overflow-wrap: anywhere; }
 .bgv2-insp-p.small { font-size: 10px; }
 .bgv2-insp-p.muted { color: #94a3b8; }
-.bgv2-insp-pre   { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; font-family: var(--bgv2-font-mono); font-size: 11px; color: #1e293b; margin: 0; overflow-x: auto; }
+.bgv2-insp-pre   { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; padding: 6px 8px; font-family: var(--bgv2-font-mono); font-size: 11px; color: #1e293b; margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; }
 .bgv2-portmap    { width: 100%; font-size: 11px; border-collapse: collapse; }
 .bgv2-portmap td { padding: 3px 0; }
 .bgv2-portmap td.mono { font-family: var(--bgv2-font-mono); color: #0f172a; }
+.bgv2-insp-port  { margin: 4px 0 8px; padding: 4px 0 6px; border-bottom: 1px solid #f1f5f9; }
+.bgv2-insp-portname { font-size: 12px; font-weight: 600; color: #0f172a; }
+.bgv2-insp-port .bgv2-insp-p { margin: 1px 0; }
+.bgv2-insp-port .bgv2-insp-pre { margin-top: 2px; }
 
 .bgv2-drag-ghost { filter: drop-shadow(0 4px 12px rgba(37,99,235,0.35)); }
 .bgv2-drag-slot  { fill: #2563eb; opacity: 0.55; pointer-events: none; }

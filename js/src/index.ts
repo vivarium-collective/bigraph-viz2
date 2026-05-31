@@ -3,7 +3,7 @@ import { normalize } from "./normalize";
 import { materializeWireTargets } from "./materialize";
 import { layout } from "./layout";
 import { renderSvg } from "./render/svg";
-import { attachPanZoom } from "./interact/panzoom";
+import { attachPanZoom, type ViewTransform } from "./interact/panzoom";
 import { attachHover } from "./interact/hover";
 import { attachClick } from "./interact/click";
 import { attachCollapse } from "./interact/collapse";
@@ -13,7 +13,7 @@ import { renderInspector } from "./inspector/render";
 import { decodeHash } from "./hash/sync";
 import type { NodeId, RowsOverride } from "./types";
 
-export const version = "0.3.16";
+export const version = "0.3.18";
 
 export interface MountOpts {
   inspector?: boolean;
@@ -26,7 +26,8 @@ export interface MountOpts {
 }
 
 interface Instance {
-  detachers: Array<() => void>;
+  detachers: Array<() => void>;        // re-render-scoped (reset each rerender)
+  mountDetachers: Array<() => void>;   // mount-lifetime (cleaned on unmount)
 }
 
 const INSTANCES = new WeakMap<HTMLElement, Instance>();
@@ -43,8 +44,68 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   canvas.className = "bgv2-canvas";
   el.appendChild(canvas);
 
-  const inspectorEl = showInspector ? document.createElement("div") : null;
-  if (inspectorEl) { inspectorEl.className = "bgv2-inspector"; el.appendChild(inspectorEl); }
+  // Persistent "reset view" control: restores the default camera (identity
+  // pan/zoom). Created once and overlaid on the canvas; survives re-renders.
+  const resetBtn = document.createElement("button");
+  resetBtn.className = "bgv2-reset";
+  resetBtn.type = "button";
+  resetBtn.title = "Reset view";
+  resetBtn.textContent = "Reset view";
+  resetBtn.addEventListener("click", () => {
+    view = { tx: 0, ty: 0, s: 1 };
+    rerender();
+  });
+  canvas.appendChild(resetBtn);
+
+  const mountDetachers: Array<() => void> = [];
+  let inspectorEl: HTMLDivElement | null = null;
+  if (showInspector) {
+    // Drag-resizable + collapsible details panel. The handle and panel are
+    // created once (not in rerender), so their width/collapsed state persists.
+    const handle = document.createElement("div");
+    handle.className = "bgv2-resize";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "bgv2-collapse-btn";
+    toggle.title = "Hide details";
+    toggle.textContent = "›";
+    handle.appendChild(toggle);
+
+    inspectorEl = document.createElement("div");
+    inspectorEl.className = "bgv2-inspector";
+    inspectorEl.style.width = "280px";
+    el.appendChild(handle);
+    el.appendChild(inspectorEl);
+
+    toggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const collapsed = el.classList.toggle("bgv2-inspector-collapsed");
+      toggle.textContent = collapsed ? "‹" : "›";
+      toggle.title = collapsed ? "Show details" : "Hide details";
+    });
+
+    let dragging = false, startX = 0, startW = 0;
+    const onDown = (e: MouseEvent) => {
+      if (e.target === toggle || el.classList.contains("bgv2-inspector-collapsed")) return;
+      dragging = true; startX = e.clientX; startW = inspectorEl!.offsetWidth;
+      document.body.style.cursor = "col-resize";
+      e.preventDefault();
+    };
+    const onMove = (e: MouseEvent) => {
+      if (!dragging) return;
+      // Handle sits left of the panel: dragging left widens it.
+      const w = Math.max(160, Math.min(760, startW - (e.clientX - startX)));
+      inspectorEl!.style.width = `${w}px`;
+    };
+    const onUp = () => { if (dragging) { dragging = false; document.body.style.cursor = ""; } };
+    handle.addEventListener("mousedown", onDown);
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+    mountDetachers.push(() => {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+    });
+  }
 
   const root = normalize(state as Parameters<typeof normalize>[0]);
   if (opts.materialize !== false) materializeWireTargets(root);
@@ -52,11 +113,15 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   let rowsOverride: RowsOverride = new Map();
   let deleted: Set<NodeId> = new Set();
   let selectedId: NodeId | null = null;
+  // Persisted camera transform so collapse/expand/drag/delete re-renders keep
+  // the user looking at the same place instead of snapping back to identity.
+  let view: ViewTransform = { tx: 0, ty: 0, s: 1 };
   const detachers: Array<() => void> = [];
 
   function rerender() {
     detachers.forEach(d => d()); detachers.length = 0;
-    canvas.innerHTML = "";
+    // Remove only the prior SVG, preserving persistent overlays (reset button).
+    canvas.querySelector(".bgv2-svg")?.remove();
     const lr = layout(root, collapsed, maxRowWidth, rowsOverride, deleted);
     const svg = renderSvg(lr);
     canvas.appendChild(svg);
@@ -69,6 +134,8 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
 
     detachers.push(attachPanZoom(svg, svg.querySelector(".bgv2-root")!, {
       isLocked: drag.isActive,
+      initial: view,
+      onChange: (v) => { view = v; },
     }));
     detachers.push(attachHover(svg, lr));
     detachers.push(attachClick(svg, lr, (sel) => {
@@ -88,12 +155,16 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     if (inspectorEl) renderInspector(inspectorEl, lr, selectedId);
   }
   rerender();
-  INSTANCES.set(el, { detachers });
+  INSTANCES.set(el, { detachers, mountDetachers });
 }
 
 export function unmount(el: HTMLElement): void {
   const inst = INSTANCES.get(el);
-  if (inst) { inst.detachers.forEach(d => d()); INSTANCES.delete(el); }
+  if (inst) {
+    inst.detachers.forEach(d => d());
+    inst.mountDetachers.forEach(d => d());
+    INSTANCES.delete(el);
+  }
   el.innerHTML = "";
   el.classList.remove("bgv2");
 }
