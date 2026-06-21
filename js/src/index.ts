@@ -58,7 +58,7 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   resetBtn.addEventListener("click", () => {
     // Re-frame the whole graph (fit-to-content) rather than snapping to the raw
     // identity transform, which would scroll a large composite off-screen.
-    firstFitDone = false;
+    userPanned = false;
     rerender();
   });
   canvas.appendChild(resetBtn);
@@ -127,11 +127,13 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   // Persisted camera transform so collapse/expand/drag/delete re-renders keep
   // the user looking at the same place instead of snapping back to identity.
   let view: ViewTransform = { tx: 0, ty: 0, s: 1 };
-  // Whether the initial fit-to-content camera has been applied. The first
-  // render with a real canvas size frames the whole graph (so large composites
-  // open framed instead of on an empty corner); afterwards the user's pan/zoom
-  // is preserved across re-renders.
-  let firstFitDone = false;
+  // Until the user takes control of the camera (a pan/zoom gesture or a node
+  // drag), every render frames the whole graph (fit-to-content). This keeps
+  // large composites visible — including across the resize events that fire
+  // while the page lays out, where an early one-shot fit would lock in a wrong
+  // camera computed against a not-yet-sized canvas. Once true, the user's
+  // pan/zoom is preserved across re-renders.
+  let userPanned = false;
   // Right-panel state: which tab and which nodes are hidden. Deleting a node
   // (select + Delete) and switching a process off in the Processes tab share
   // this ONE `hidden` set — so a deleted process appears switched off and is
@@ -173,16 +175,31 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     // Hidden nodes (Delete key OR a Processes-tab switch) are filtered out.
     const lr = layout(root, collapsed, maxRowWidth, rowsOverride, hidden);
     currentLr = lr;
-    // Initial fit-to-content: on the first render with a sized canvas (and no
-    // camera restored from the URL hash), frame the entire graph so large
+    // Fit-to-content: until the user takes camera control (and unless a camera
+    // was restored from the URL hash), frame the entire graph so large
     // composites are visible instead of opening on an empty top-left corner.
-    if (!firstFitDone && !hashHasState) {
+    // Re-running on every pre-interaction render means the final layout/resize
+    // wins, rather than a stale fit computed against a not-yet-sized canvas.
+    if (!userPanned && !hashHasState) {
       const cw = canvas.clientWidth, ch = canvas.clientHeight;
       const b = lr.root.bbox;
       if (cw > 0 && ch > 0 && b.w > 0 && b.h > 0) {
-        const s = Math.min(cw / b.w, ch / b.h) * 0.95;
-        view = { s, tx: cw / 2 - s * (b.x + b.w / 2), ty: ch / 2 - s * (b.y + b.h / 2) };
-        firstFitDone = true;
+        const PAD = 24;
+        const availW = Math.max(1, cw - PAD * 2), availH = Math.max(1, ch - PAD * 2);
+        // Scale to fit both dimensions, never enlarging past 1:1. But a graph
+        // with an extreme aspect ratio (e.g. a 1016-node whole-cell model laid
+        // out ~750×38000) would shrink to an unreadable sliver under fit-both —
+        // so floor the scale at fit-to-width. The long axis then overflows and
+        // is reached by panning, with content at a legible size.
+        const s = Math.min(
+          Math.max(Math.min(availW / b.w, availH / b.h), Math.min(availW / b.w, 1)),
+          1,
+        );
+        // Center each axis when the scaled graph fits it; otherwise anchor to the
+        // start (top / left) with padding so it opens at a readable corner.
+        const tx = s * b.w <= availW ? cw / 2 - s * (b.x + b.w / 2) : PAD - s * b.x;
+        const ty = s * b.h <= availH ? ch / 2 - s * (b.y + b.h / 2) : PAD - s * b.y;
+        view = { s, tx, ty };
       }
     }
     // Honor a pending "center on this node" request (e.g. Processes-tab click)
@@ -206,14 +223,24 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
 
     const drag = attachDragNode(svg, lr, rowsOverride, (next) => {
       rowsOverride = next;
+      userPanned = true;   // a deliberate layout edit — stop auto-reframing
       rerender();
     });
     detachers.push(drag.detach);
 
+    // attachPanZoom calls onChange once on its initial (programmatic) apply with
+    // exactly the camera we seed here — that must NOT count as the user taking
+    // control, or the fit-to-content would lock to this render's (possibly
+    // pre-resize) canvas size. Only a value that differs from the seed is a real
+    // pan/zoom gesture.
+    const seeded = { tx: view.tx, ty: view.ty, s: view.s };
     detachers.push(attachPanZoom(svg, svg.querySelector(".bgv2-root")!, {
       isLocked: drag.isActive,
       initial: view,
-      onChange: (v) => { view = v; },
+      onChange: (v) => {
+        view = v;
+        if (v.tx !== seeded.tx || v.ty !== seeded.ty || v.s !== seeded.s) userPanned = true;
+      },
     }));
     detachers.push(attachHover(svg, lr));
     detachers.push(attachClick(svg, lr, (sel) => {
@@ -234,12 +261,11 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   }
   rerender();
   // A standalone embed (e.g. a raw emit_html page) can mount before the canvas
-  // has a resolved size, so the first fit-to-content can't compute and the graph
-  // would render off-screen (blank). Observe the canvas and re-render until the
-  // initial fit lands. The `!firstFitDone` guard makes this a one-shot that never
-  // fights the user's pan/zoom once the graph has been framed.
+  // has a resolved size, and several resize events fire as the page lays out.
+  // Re-render (and thus re-fit) on each until the user takes camera control, so
+  // the final canvas size frames the graph instead of an early intermediate one.
   if (typeof ResizeObserver !== "undefined") {
-    const ro = new ResizeObserver(() => { if (!firstFitDone) rerender(); });
+    const ro = new ResizeObserver(() => { if (!userPanned) rerender(); });
     ro.observe(canvas);
     mountDetachers.push(() => ro.disconnect());
   }
