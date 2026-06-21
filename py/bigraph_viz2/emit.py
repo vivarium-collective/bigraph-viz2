@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import html as _html
 import json
+import math
 import secrets
 from importlib import resources
 from typing import Any
@@ -12,6 +13,28 @@ _BUNDLE_PKG = "bigraph_viz2._bundle"
 
 def _read_bundle_file(name: str) -> str:
     return resources.files(_BUNDLE_PKG).joinpath(name).read_text(encoding="utf-8")
+
+
+def _json_safe(o: Any) -> Any:
+    """Make a value safe for the browser's ``JSON.parse``.
+
+    ``json.dumps`` defaults to ``allow_nan=True`` and writes non-finite floats as
+    the bare tokens ``Infinity`` / ``-Infinity`` / ``NaN`` — which are valid in
+    Python's loader but NOT in standard JSON, so the in-page ``JSON.parse(raw)``
+    throws and the view never mounts (blank canvas). Recursively replace
+    non-finite floats with their string forms so the value still displays.
+    """
+    if isinstance(o, float):
+        if math.isnan(o):
+            return "NaN"
+        if math.isinf(o):
+            return "Infinity" if o > 0 else "-Infinity"
+        return o
+    if isinstance(o, dict):
+        return {k: _json_safe(v) for k, v in o.items()}
+    if isinstance(o, (list, tuple)):
+        return [_json_safe(v) for v in o]
+    return o
 
 
 def emit_html(
@@ -46,7 +69,7 @@ def emit_html(
     div_id = f"bgv2-{viz_id}"
     data_id = f"bgv2-{viz_id}-data"
 
-    state_json = json.dumps(state, default=str, ensure_ascii=False)
+    state_json = json.dumps(_json_safe(state), default=str, ensure_ascii=False)
 
     bundle = ""
     if not dedupe:
