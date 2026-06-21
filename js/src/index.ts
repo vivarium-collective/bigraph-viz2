@@ -56,7 +56,9 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   resetBtn.title = "Reset view";
   resetBtn.textContent = "Reset view";
   resetBtn.addEventListener("click", () => {
-    view = { tx: 0, ty: 0, s: 1 };
+    // Re-frame the whole graph (fit-to-content) rather than snapping to the raw
+    // identity transform, which would scroll a large composite off-screen.
+    firstFitDone = false;
     rerender();
   });
   canvas.appendChild(resetBtn);
@@ -125,6 +127,11 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   // Persisted camera transform so collapse/expand/drag/delete re-renders keep
   // the user looking at the same place instead of snapping back to identity.
   let view: ViewTransform = { tx: 0, ty: 0, s: 1 };
+  // Whether the initial fit-to-content camera has been applied. The first
+  // render with a real canvas size frames the whole graph (so large composites
+  // open framed instead of on an empty corner); afterwards the user's pan/zoom
+  // is preserved across re-renders.
+  let firstFitDone = false;
   // Right-panel state: which tab and which nodes are hidden. Deleting a node
   // (select + Delete) and switching a process off in the Processes tab share
   // this ONE `hidden` set — so a deleted process appears switched off and is
@@ -166,6 +173,18 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     // Hidden nodes (Delete key OR a Processes-tab switch) are filtered out.
     const lr = layout(root, collapsed, maxRowWidth, rowsOverride, hidden);
     currentLr = lr;
+    // Initial fit-to-content: on the first render with a sized canvas (and no
+    // camera restored from the URL hash), frame the entire graph so large
+    // composites are visible instead of opening on an empty top-left corner.
+    if (!firstFitDone && !hashHasState) {
+      const cw = canvas.clientWidth, ch = canvas.clientHeight;
+      const b = lr.root.bbox;
+      if (cw > 0 && ch > 0 && b.w > 0 && b.h > 0) {
+        const s = Math.min(cw / b.w, ch / b.h) * 0.95;
+        view = { s, tx: cw / 2 - s * (b.x + b.w / 2), ty: ch / 2 - s * (b.y + b.h / 2) };
+        firstFitDone = true;
+      }
+    }
     // Honor a pending "center on this node" request (e.g. Processes-tab click)
     // by seeding the camera so the node sits in the middle of the canvas.
     if (pendingCenterId) {
@@ -214,6 +233,16 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     paintPanel(lr);
   }
   rerender();
+  // A standalone embed (e.g. a raw emit_html page) can mount before the canvas
+  // has a resolved size, so the first fit-to-content can't compute and the graph
+  // would render off-screen (blank). Observe the canvas and re-render until the
+  // initial fit lands. The `!firstFitDone` guard makes this a one-shot that never
+  // fights the user's pan/zoom once the graph has been framed.
+  if (typeof ResizeObserver !== "undefined") {
+    const ro = new ResizeObserver(() => { if (!firstFitDone) rerender(); });
+    ro.observe(canvas);
+    mountDetachers.push(() => ro.disconnect());
+  }
   INSTANCES.set(el, { detachers, mountDetachers });
 }
 
