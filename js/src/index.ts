@@ -94,13 +94,30 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     "<dt>Scroll</dt><dd>zoom in / out</dd>" +
     "<dt>Double-click</dt><dd>collapse / expand a node</dd>" +
     "<dt>Click</dt><dd>select &amp; inspect</dd>" +
-    "<dt><kbd>Alt</kbd> + drag</dt><dd>move / reorder a node</dd>" +
+    "<dt><kbd>Alt</kbd> + drag</dt><dd>move a node (within its parent)</dd>" +
     "<dt>Select + <kbd>Del</kbd></dt><dd>hide (<kbd>⌘/Ctrl</kbd>+<kbd>Z</kbd> undo)</dd>" +
+    "<dt>Snap</dt><dd>align moved nodes to a grid</dd>" +
     "<dt>Reset view</dt><dd>re-frame everything</dd>" +
     "</dl>";
   helpBtn.addEventListener("click", () => helpPanel.classList.toggle("bgv2-help-open"));
   canvas.appendChild(helpBtn);
   canvas.appendChild(helpPanel);
+
+  // Snap-to-grid toggle: when on, an Alt-dragged node lands on the nearest grid
+  // cell so arrangements stay aligned. On by default.
+  const SNAP_GRID = 20;
+  let snapEnabled = true;
+  const snapBtn = document.createElement("button");
+  snapBtn.className = "bgv2-snap bgv2-snap-on";
+  snapBtn.type = "button";
+  snapBtn.title = "Snap moved nodes to grid";
+  snapBtn.textContent = "▦";
+  snapBtn.addEventListener("click", () => {
+    snapEnabled = !snapEnabled;
+    snapBtn.classList.toggle("bgv2-snap-on", snapEnabled);
+    snapBtn.title = snapEnabled ? "Snap to grid: on" : "Snap to grid: off";
+  });
+  canvas.appendChild(snapBtn);
 
   const mountDetachers: Array<() => void> = [];
   let inspectorEl: HTMLDivElement | null = null;
@@ -273,7 +290,7 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
       posOverride.set(nodeId, pos);
       userPanned = true;   // user arranged a node — stop auto-reframing
       rerender();
-    });
+    }, () => (snapEnabled ? SNAP_GRID : 0));
     detachers.push(drag.detach);
 
     // attachPanZoom calls onChange once on its initial (programmatic) apply with

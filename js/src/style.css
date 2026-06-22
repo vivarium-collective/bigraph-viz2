@@ -51,6 +51,16 @@
 .bgv2-help-panel dd { margin: 0; color: #475569; }
 .bgv2-help-panel kbd { font: 600 10px var(--bgv2-font-mono);
   background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 3px; padding: 0 3px; }
+.bgv2-snap {
+  position: absolute; top: 10px; left: 42px; z-index: 5;
+  width: 24px; height: 24px; padding: 0;
+  font: 13px var(--bgv2-font); line-height: 22px; text-align: center;
+  color: #64748b; background: rgba(255,255,255,0.92);
+  border: 1px solid #cbd5e1; border-radius: 6px; cursor: pointer;
+  box-shadow: 0 1px 3px rgba(15,23,42,0.12);
+}
+.bgv2-snap:hover { border-color: #94a3b8; }
+.bgv2-snap.bgv2-snap-on { color: #2563eb; background: #eff6ff; border-color: #bfdbfe; }
 .bgv2-inspector { width: 280px; flex: 0 0 auto; display: flex; flex-direction: column;
   background: var(--bgv2-inspector-bg); border-left: 1px solid #e5e7eb; font-size: 12px; overflow: hidden; }
 .bgv2.bgv2-inspector-collapsed .bgv2-inspector { display: none; }
