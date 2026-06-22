@@ -80,6 +80,28 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   });
   canvas.appendChild(resetBtn);
 
+  // Navigation help: a "?" button toggling a small overlay listing the gestures.
+  const helpBtn = document.createElement("button");
+  helpBtn.className = "bgv2-help";
+  helpBtn.type = "button";
+  helpBtn.title = "Navigation help";
+  helpBtn.textContent = "?";
+  const helpPanel = document.createElement("div");
+  helpPanel.className = "bgv2-help-panel";
+  helpPanel.innerHTML =
+    "<h4>Navigation</h4><dl>" +
+    "<dt>Drag</dt><dd>pan</dd>" +
+    "<dt>Scroll</dt><dd>zoom in / out</dd>" +
+    "<dt>Double-click</dt><dd>collapse / expand a node</dd>" +
+    "<dt>Click</dt><dd>select &amp; inspect</dd>" +
+    "<dt><kbd>Alt</kbd> + drag</dt><dd>move / reorder a node</dd>" +
+    "<dt>Select + <kbd>Del</kbd></dt><dd>hide (<kbd>⌘/Ctrl</kbd>+<kbd>Z</kbd> undo)</dd>" +
+    "<dt>Reset view</dt><dd>re-frame everything</dd>" +
+    "</dl>";
+  helpBtn.addEventListener("click", () => helpPanel.classList.toggle("bgv2-help-open"));
+  canvas.appendChild(helpBtn);
+  canvas.appendChild(helpPanel);
+
   const mountDetachers: Array<() => void> = [];
   let inspectorEl: HTMLDivElement | null = null;
   if (showInspector) {
