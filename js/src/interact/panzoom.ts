@@ -11,9 +11,15 @@ export interface PanZoomOpts {
   /** Called whenever the transform changes, so the caller can persist it and
    * re-seed the next mount with `initial`. */
   onChange?: (v: ViewTransform) => void;
+  /** Min/max zoom scale. Defaults span a wide range so a graph that fits at a
+   * tiny scale (e.g. a 1016-node composite framed at ~0.02) can still be zoomed
+   * in far enough to read individual nodes. */
+  minScale?: number;
+  maxScale?: number;
 }
 
 export function attachPanZoom(svg: SVGSVGElement, rootG: SVGGElement, opts: PanZoomOpts = {}): () => void {
+  const MIN_S = opts.minScale ?? 0.01, MAX_S = opts.maxScale ?? 16;
   let tx = opts.initial?.tx ?? 0, ty = opts.initial?.ty ?? 0, s = opts.initial?.s ?? 1;
   let armed = false, didMove = false;
   let startX = 0, startY = 0, startTx = 0, startTy = 0;
@@ -28,7 +34,7 @@ export function attachPanZoom(svg: SVGSVGElement, rootG: SVGGElement, opts: PanZ
   function onWheel(e: WheelEvent) {
     e.preventDefault();
     const factor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const newS = Math.max(0.25, Math.min(4, s * factor));
+    const newS = Math.max(MIN_S, Math.min(MAX_S, s * factor));
     const rect = svg.getBoundingClientRect();
     const cx = e.clientX - rect.left, cy = e.clientY - rect.top;
     tx = cx - (cx - tx) * (newS / s);

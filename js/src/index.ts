@@ -11,7 +11,7 @@ import { attachDragNode } from "./interact/dragnode";
 import { attachDelete } from "./interact/delete";
 import { renderPanel, collectProcesses, buildNodeTree, type PanelTab } from "./panel/render";
 import { decodeHash } from "./hash/sync";
-import type { NodeId, RowsOverride, LayoutResult } from "./types";
+import type { NodeId, RowsOverride, LayoutResult, SpecNode } from "./types";
 
 export const version = "0.3.21";
 
@@ -23,6 +23,11 @@ export interface MountOpts {
    * mount when the URL hash has no saved collapse state for this viz, so user
    * expand/collapse still wins on reload. */
   collapsed?: string[];
+  /** Auto-collapse every container node at this depth or deeper (root's children
+   * are depth 0), so a large composite opens as a shallow, legible tree the user
+   * drills into. Unioned with `collapsed`; applied only when the URL hash has no
+   * saved collapse state. e.g. 1 shows only the top level. */
+  collapseDepth?: number;
   /** If true (default), synthesize any wire-target stores that the spec
    * references but doesn't declare, so wires render. Synthetic nodes appear
    * with a dashed outline. Set false to view the literal spec only. */
@@ -36,6 +41,18 @@ interface Instance {
 
 const INSTANCES = new WeakMap<HTMLElement, Instance>();
 let nextId = 0;
+
+/** Collect ids of every container node (a non-variable node with children) at
+ * `depth` or deeper, so the diagram opens collapsed below that level. Root's
+ * children are depth 0. */
+function collectCollapsedByDepth(node: SpecNode, depth: number, minDepth: number, acc: Set<NodeId>): void {
+  for (const child of node.children) {
+    if (child.kind !== "variable" && child.children.length > 0 && depth >= minDepth) {
+      acc.add(child.id);
+    }
+    collectCollapsedByDepth(child, depth + 1, minDepth, acc);
+  }
+}
 
 export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): void {
   unmount(el);
@@ -122,6 +139,9 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   if (!hashHasState && opts.collapsed?.length) {
     collapsed = new Set(opts.collapsed);
   }
+  if (!hashHasState && opts.collapseDepth != null) {
+    collectCollapsedByDepth(root, 0, opts.collapseDepth, collapsed);
+  }
   let rowsOverride: RowsOverride = new Map();
   let selectedId: NodeId | null = null;
   // Persisted camera transform so collapse/expand/drag/delete re-renders keep
@@ -134,6 +154,9 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
   // camera computed against a not-yet-sized canvas. Once true, the user's
   // pan/zoom is preserved across re-renders.
   let userPanned = false;
+  // Zoom-out floor, refreshed by the fit step so the user can always pull back
+  // far enough to see the entire graph (huge composites fit at a tiny scale).
+  let minZoom = 0.01;
   // Right-panel state: which tab and which nodes are hidden. Deleting a node
   // (select + Delete) and switching a process off in the Processes tab share
   // this ONE `hidden` set — so a deleted process appears switched off and is
@@ -186,15 +209,16 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
       if (cw > 0 && ch > 0 && b.w > 0 && b.h > 0) {
         const PAD = 24;
         const availW = Math.max(1, cw - PAD * 2), availH = Math.max(1, ch - PAD * 2);
+        // The scale at which the WHOLE graph fits — used as the zoom-out floor so
+        // the user can always pull back to see everything, however large.
+        const fitBoth = Math.min(availW / b.w, availH / b.h);
+        minZoom = Math.min(0.05, fitBoth * 0.5);
         // Scale to fit both dimensions, never enlarging past 1:1. But a graph
         // with an extreme aspect ratio (e.g. a 1016-node whole-cell model laid
         // out ~750×38000) would shrink to an unreadable sliver under fit-both —
         // so floor the scale at fit-to-width. The long axis then overflows and
         // is reached by panning, with content at a legible size.
-        const s = Math.min(
-          Math.max(Math.min(availW / b.w, availH / b.h), Math.min(availW / b.w, 1)),
-          1,
-        );
+        const s = Math.min(Math.max(fitBoth, Math.min(availW / b.w, 1)), 1);
         // Center each axis when the scaled graph fits it; otherwise anchor to the
         // start (top / left) with padding so it opens at a readable corner.
         const tx = s * b.w <= availW ? cw / 2 - s * (b.x + b.w / 2) : PAD - s * b.x;
@@ -237,6 +261,8 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     detachers.push(attachPanZoom(svg, svg.querySelector(".bgv2-root")!, {
       isLocked: drag.isActive,
       initial: view,
+      minScale: minZoom,
+      maxScale: 16,
       onChange: (v) => {
         view = v;
         if (v.tx !== seeded.tx || v.ty !== seeded.ty || v.s !== seeded.s) userPanned = true;

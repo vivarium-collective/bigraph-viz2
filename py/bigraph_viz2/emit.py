@@ -48,6 +48,7 @@ def emit_html(
     id: str | None = None,
     max_row_width: int = 480,
     collapsed: list[str] | None = None,
+    collapse_depth: int | None = None,
     expand: bool = False,
     core: Any | None = None,
     materialize: bool = True,
@@ -86,6 +87,7 @@ def emit_html(
         "id": viz_id,
         "materialize": materialize,
         "collapsed": collapsed or [],
+        **({"collapseDepth": collapse_depth} if collapse_depth is not None else {}),
     })
 
     style = f"height:{height};width:{width}"
