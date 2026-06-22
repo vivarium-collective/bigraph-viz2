@@ -65,3 +65,37 @@ describe("layout", () => {
     }
   });
 });
+
+describe("free positioning (posOverride)", () => {
+  it("places a freed child at its parent-local position and grows the parent", () => {
+    const root = normalize(cellSpec);
+    const STORE_PAD = 24, STORE_HEADER = 30;
+    const baseline = layout(root, new Set(), 480);
+    const targetId = root.children[1].id;  // e.g. "cell/cytoplasm"
+
+    const pos = new Map([[targetId, { x: 600, y: 400 }]]);
+    const result = layout(root, new Set(), 480, undefined, undefined, pos);
+
+    const rootBox = result.byId.get(root.id)!.bbox;
+    const childBox = result.byId.get(targetId)!.bbox;
+    // Positioned at the parent's content origin + the local offset.
+    expect(childBox.x).toBeCloseTo(rootBox.x + STORE_PAD + 600, 5);
+    expect(childBox.y).toBeCloseTo(rootBox.y + STORE_HEADER + STORE_PAD + 400, 5);
+    // Parent grew to contain it, and the child stays within the parent.
+    expect(rootBox.w).toBeGreaterThan(baseline.root.bbox.w);
+    expect(childBox.x + childBox.w).toBeLessThanOrEqual(rootBox.x + rootBox.w + 0.01);
+    expect(childBox.y + childBox.h).toBeLessThanOrEqual(rootBox.y + rootBox.h + 0.01);
+  });
+
+  it("clamps negative positions to >= 0 so a node can't escape its parent", () => {
+    const root = normalize(cellSpec);
+    const STORE_PAD = 24, STORE_HEADER = 30;
+    const targetId = root.children[0].id;
+    const pos = new Map([[targetId, { x: -500, y: -500 }]]);
+    const result = layout(root, new Set(), 480, undefined, undefined, pos);
+    const rootBox = result.byId.get(root.id)!.bbox;
+    const childBox = result.byId.get(targetId)!.bbox;
+    expect(childBox.x).toBeGreaterThanOrEqual(rootBox.x + STORE_PAD - 0.01);
+    expect(childBox.y).toBeGreaterThanOrEqual(rootBox.y + STORE_HEADER + STORE_PAD - 0.01);
+  });
+});

@@ -1,4 +1,4 @@
-import type { SpecNode, NodeId, RowsOverride } from "../types";
+import type { SpecNode, NodeId, RowsOverride, PosOverride } from "../types";
 import {
   VAR_W, VAR_H, PROC_W, PROC_H, STORE_PAD, STORE_HEADER,
   CHILD_GAP_X, CHILD_GAP_Y,
@@ -33,9 +33,10 @@ export function measure(
   maxRowWidth: number,
   rowsOverride?: RowsOverride,
   deleted?: Set<NodeId>,
+  posOverride?: PosOverride,
 ): Sizes {
   const sizes: Sizes = new Map();
-  visit(root, collapsed, maxRowWidth, sizes, rowsOverride, deleted);
+  visit(root, collapsed, maxRowWidth, sizes, rowsOverride, deleted, posOverride);
   return sizes;
 }
 
@@ -46,6 +47,7 @@ function visit(
   sizes: Sizes,
   rowsOverride?: RowsOverride,
   deleted?: Set<NodeId>,
+  posOverride?: PosOverride,
 ): { w: number; h: number } {
   if (node.kind === "variable") {
     const labelW = Math.min(estimateTextWidth(node.name) + VAR_LABEL_PAD, VAR_LABEL_MAX);
@@ -72,11 +74,17 @@ function visit(
   const visibleChildren = deleted
     ? node.children.filter(c => !deleted.has(c.id))
     : node.children;
-  for (const c of visibleChildren) visit(c, collapsed, maxRowWidth, sizes, rowsOverride, deleted);
+  for (const c of visibleChildren) visit(c, collapsed, maxRowWidth, sizes, rowsOverride, deleted, posOverride);
+
+  // Free-positioned children are lifted out of the row flow and placed
+  // absolutely; the flow sizing below ignores them, and they contribute their
+  // own extent (local position + size) so the parent grows to contain them.
+  const isFree = (id: NodeId) => !!posOverride?.has(id);
+  const flowChildren = visibleChildren.filter(c => !isFree(c.id));
 
   const { rows: rowsAll, explicit } = effectiveRows(node, rowsOverride);
-  const rows = deleted
-    ? rowsAll.map(row => row.filter(c => !deleted.has(c.id))).filter(r => r.length > 0)
+  const rows = (deleted || posOverride)
+    ? rowsAll.map(row => row.filter(c => !deleted?.has(c.id) && !isFree(c.id))).filter(r => r.length > 0)
     : rowsAll;
   let totalW = 0, totalH = 0;
 
@@ -91,7 +99,7 @@ function visit(
   } else {
     // Auto-wrap based on max_row_width.
     let curRowW = 0, curRowH = 0;
-    for (const child of visibleChildren) {
+    for (const child of flowChildren) {
       const sz = sizes.get(child.id)!;
       const wantW = curRowW === 0 ? sz.w : curRowW + CHILD_GAP_X + sz.w;
       if (curRowW > 0 && wantW > maxRowWidth) {
@@ -107,6 +115,17 @@ function visit(
     if (curRowW > 0) {
       totalW = Math.max(totalW, curRowW);
       totalH += (totalH > 0 ? CHILD_GAP_Y : 0) + curRowH;
+    }
+  }
+
+  // Grow the content box to contain any free-positioned children (clamped >= 0).
+  if (posOverride) {
+    for (const child of visibleChildren) {
+      const pos = posOverride.get(child.id);
+      if (!pos) continue;
+      const cs = sizes.get(child.id)!;
+      totalW = Math.max(totalW, Math.max(0, pos.x) + cs.w);
+      totalH = Math.max(totalH, Math.max(0, pos.y) + cs.h);
     }
   }
 
