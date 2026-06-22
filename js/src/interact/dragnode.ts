@@ -21,6 +21,7 @@ export function attachDragNode(
   svg: SVGSVGElement,
   lr: LayoutResult,
   onReposition: RepositionCallback,
+  getSnap?: () => number,
 ): DragGate & { detach: () => void } {
   let dragging = false;
   let suppressClickUntil = 0;
@@ -91,9 +92,13 @@ export function attachDragNode(
       // node stays within its parent. The layout grows the parent if needed.
       const contentX = parent.bbox.x + STORE_PAD;
       const contentY = parent.bbox.y + STORE_HEADER + STORE_PAD;
+      // Optional snap-to-grid: round the parent-local position to the nearest
+      // grid cell so dropped nodes align tidily.
+      const grid = getSnap?.() ?? 0;
+      const snap = (v: number) => (grid > 0 ? Math.round(v / grid) * grid : v);
       onReposition(dragNodeId, {
-        x: Math.max(0, newX - contentX),
-        y: Math.max(0, newY - contentY),
+        x: Math.max(0, snap(newX - contentX)),
+        y: Math.max(0, snap(newY - contentY)),
       });
     }
     cleanupDrag();
