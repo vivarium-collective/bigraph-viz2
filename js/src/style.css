@@ -140,8 +140,10 @@
    leave repeated frame artifacts when the inner <g> pans. */
 .bgv2-svg { isolation: isolate; will-change: transform; }
 
-/* Subtle hover affordance on nodes that can be Alt-dragged. */
-.bgv2-svg.bgv2-alt-mode .bgv2-node { cursor: grab; }
+/* While Alt is held, nodes show a grab cursor so Alt-drag-to-move is
+   discoverable. The class is toggled on the .bgv2 root by mount()'s key handler. */
+.bgv2.bgv2-alt-mode .bgv2-node { cursor: grab; }
+.bgv2.bgv2-alt-mode .bgv2-node:active { cursor: grabbing; }
 
 /* Directional port glyphs (orientation + color encode in/out). */
 .bgv2-port-in       { fill: #ea580c; }   /* input  ports = orange triangle */

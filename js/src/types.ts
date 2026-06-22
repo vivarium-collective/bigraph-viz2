@@ -74,3 +74,11 @@ export type SiblingOrder = Map<NodeId, NodeId[]>;
 // the spec but missing from the override are appended to a synthesized last
 // row to avoid losing nodes after spec changes.
 export type RowsOverride = Map<NodeId, NodeId[][]>;
+
+// Free-positioned nodes. Maps a node id to its top-left position in its PARENT's
+// content-local coordinates (origin at the parent's content box, after header +
+// padding). A freed node is lifted out of its parent's row flow and placed
+// absolutely; the parent grows to contain it. Positions are clamped >= 0 so a
+// node can never escape its parent (its branch in the bigraph) — only move
+// within it. Set by Alt-drag.
+export type PosOverride = Map<NodeId, { x: number; y: number }>;

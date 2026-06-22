@@ -11,7 +11,7 @@ import { attachDragNode } from "./interact/dragnode";
 import { attachDelete } from "./interact/delete";
 import { renderPanel, collectProcesses, buildNodeTree, type PanelTab } from "./panel/render";
 import { decodeHash } from "./hash/sync";
-import type { NodeId, RowsOverride, LayoutResult, SpecNode } from "./types";
+import type { NodeId, RowsOverride, PosOverride, LayoutResult, SpecNode } from "./types";
 
 export const version = "0.3.21";
 
@@ -165,6 +165,8 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     collectCollapsedByDepth(root, 0, opts.collapseDepth, collapsed);
   }
   let rowsOverride: RowsOverride = new Map();
+  // Free-positioned nodes (Alt-drag): parent-local positions honored by layout().
+  const posOverride: PosOverride = new Map();
   let selectedId: NodeId | null = null;
   // Persisted camera transform so collapse/expand/drag/delete re-renders keep
   // the user looking at the same place instead of snapping back to identity.
@@ -218,7 +220,7 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     // Remove only the prior SVG, preserving persistent overlays (reset button).
     canvas.querySelector(".bgv2-svg")?.remove();
     // Hidden nodes (Delete key OR a Processes-tab switch) are filtered out.
-    const lr = layout(root, collapsed, maxRowWidth, rowsOverride, hidden);
+    const lr = layout(root, collapsed, maxRowWidth, rowsOverride, hidden, posOverride);
     currentLr = lr;
     // Fit-to-content: until the user takes camera control (and unless a camera
     // was restored from the URL hash), frame the entire graph so large
@@ -267,9 +269,9 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
       svg.querySelector(`[data-bgv2-id="${selectedId}"]`)?.classList.add("bgv2-selected");
     }
 
-    const drag = attachDragNode(svg, lr, rowsOverride, (next) => {
-      rowsOverride = next;
-      userPanned = true;   // a deliberate layout edit — stop auto-reframing
+    const drag = attachDragNode(svg, lr, (nodeId, pos) => {
+      posOverride.set(nodeId, pos);
+      userPanned = true;   // user arranged a node — stop auto-reframing
       rerender();
     });
     detachers.push(drag.detach);
@@ -317,6 +319,16 @@ export function mount(el: HTMLElement, state: unknown, opts: MountOpts = {}): vo
     ro.observe(canvas);
     mountDetachers.push(() => ro.disconnect());
   }
+  // While Alt is held, show a grab cursor on nodes so it's discoverable that
+  // Alt-drag moves a node (otherwise the gesture is invisible).
+  const onAltToggle = (e: KeyboardEvent) => el.classList.toggle("bgv2-alt-mode", e.altKey);
+  window.addEventListener("keydown", onAltToggle);
+  window.addEventListener("keyup", onAltToggle);
+  mountDetachers.push(() => {
+    window.removeEventListener("keydown", onAltToggle);
+    window.removeEventListener("keyup", onAltToggle);
+    el.classList.remove("bgv2-alt-mode");
+  });
   INSTANCES.set(el, { detachers, mountDetachers });
 }
 
